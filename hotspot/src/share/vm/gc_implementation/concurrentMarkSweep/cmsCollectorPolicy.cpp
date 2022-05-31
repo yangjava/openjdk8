@@ -48,15 +48,17 @@
 //
 
 void ConcurrentMarkSweepPolicy::initialize_alignments() {
+  //初始化_space_alignment等属性
   _space_alignment = _gen_alignment = (uintx)Generation::GenGrain;
   _heap_alignment = compute_heap_alignment();
 }
 
 void ConcurrentMarkSweepPolicy::initialize_generations() {
+  //初始化_generations
   _generations = NEW_C_HEAP_ARRAY3(GenerationSpecPtr, number_of_generations(), mtGC, 0, AllocFailStrategy::RETURN_NULL);
   if (_generations == NULL)
     vm_exit_during_initialization("Unable to allocate gen spec");
-
+   //UseParNewGC表示在新生代使用并发收集，默认为false
   if (UseParNewGC) {
     if (UseAdaptiveSizePolicy) {
       _generations[0] = new GenerationSpec(Generation::ASParNew,
@@ -69,6 +71,7 @@ void ConcurrentMarkSweepPolicy::initialize_generations() {
     _generations[0] = new GenerationSpec(Generation::DefNew,
                                          _initial_gen0_size, _max_gen0_size);
   }
+  // UseAdaptiveSizePolicy表示使用自适应策略动态调整各代的大小，默认为tru
   if (UseAdaptiveSizePolicy) {
     _generations[1] = new GenerationSpec(Generation::ASConcurrentMarkSweep,
                             _initial_gen1_size, _max_gen1_size);
@@ -76,7 +79,7 @@ void ConcurrentMarkSweepPolicy::initialize_generations() {
     _generations[1] = new GenerationSpec(Generation::ConcurrentMarkSweep,
                             _initial_gen1_size, _max_gen1_size);
   }
-
+  // 如果初始化失败，则退出
   if (_generations[0] == NULL || _generations[1] == NULL) {
     vm_exit_during_initialization("Unable to allocate gen spec");
   }
@@ -116,6 +119,8 @@ bool ConcurrentMarkSweepPolicy::has_soft_ended_eden()
 // ASConcurrentMarkSweepPolicy methods
 //
 
+// ASConcurrentMarkSweepPolicy继承自ConcurrentMarkSweepPolicy，定义在cmsCollectorPolicy.hpp中，
+// 该类没有新增属性和方法，就改写了父类initialize_gc_policy_counters和kind方法的实现
 void ASConcurrentMarkSweepPolicy::initialize_gc_policy_counters() {
 
   assert(size_policy() != NULL, "A size policy is required");

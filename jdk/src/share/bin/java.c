@@ -170,6 +170,7 @@ static jlong initialHeapSize    = 0;  /* inital heap size */
 /*
  * Entry point.
  */
+ // java入口函数，解析参数、创建环境、加载jvm动态库
 int
 JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         int jargc, const char** jargv,          /* java args */
@@ -184,16 +185,16 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
         jint ergo                               /* ergonomics class policy */
 )
 {
-    int mode = LM_UNKNOWN;
+    int mode = LM_UNKNOWN;    //启动模式  默认为0   其他参考：java.h 中LaunchMode枚举定义
     char *what = NULL;
     char *cpath = 0;
-    char *main_class = NULL;
+    char *main_class = NULL;  //带有main函数的class文件
     int ret;
-    InvocationFunctions ifn;
-    jlong start, end;
-    char jvmpath[MAXPATHLEN];
-    char jrepath[MAXPATHLEN];
-    char jvmcfg[MAXPATHLEN];
+    InvocationFunctions ifn;  //函数指针结构体包括：创建jvm、获取jvm启动参数、获取创建的jvm
+    jlong start, end;         //启动结束时间
+    char jvmpath[MAXPATHLEN]; //jvm路径
+    char jrepath[MAXPATHLEN]; //jre路径
+    char jvmcfg[MAXPATHLEN];  //jvm配置
 
     _fVersion = fullversion;
     _dVersion = dotversion;
@@ -203,15 +204,15 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     _wc_enabled = cpwildcard;
     _ergo_policy = ergo;
 
-    InitLauncher(javaw);
-    DumpState();
-    if (JLI_IsTraceLauncher()) {
+    InitLauncher(javaw);  //初始化启动器，window下注册启动异常时弹出ui选择调试器
+    DumpState();          //判断是否定义环境变量_JAVA_LAUNCHER_DEBUG，是的话打印调试信息
+    if (JLI_IsTraceLauncher()) { //打印命令行参数
         int i;
         printf("Command line args:\n");
         for (i = 0; i < argc ; i++) {
             printf("argv[%d] = %s\n", i, argv[i]);
         }
-        AddOption("-Dsun.java.launcher.diag=true", NULL);
+        AddOption("-Dsun.java.launcher.diag=true", NULL); //增加配置参数
     }
 
     /*
@@ -231,42 +232,54 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
      *     (Note: This side effect has been disabled.  See comment on
      *     bugid 5030265 below.)
      */
+    //选择jre的版本,这个函数实现的功能比较简单，就是选择正确的jre版本来作为即将运行java程序的版本。
+    //选择的方式
+    //1.环境变量设置了_JAVA_VERSION_SET，那么代表已经选择了jre的版本，不再进行选择
+    //2.可以从jar包中读取META-INF/MAINFEST.MF中获取,查看mian_class
+    //3.运行时给定的参数来搜索不同的目录选择jre_restrict_search
+    //最终会解析出一个真正需要的jre版本并且判断当前执行本java程序的jre版本是不是和这个版本一样，如果不一样调用linux的execv函数终止当前进出并且使用新的jre版本重新运行这个java程序，但是进程ID不会改变。
     SelectVersion(argc, argv, &main_class);
-
+    //确定一下jvm的信息并且初始化相关信息，为后面的jvm执行准备环境
+    //1.首先查找jre路径，通过GetApplicationHome来获得
+    //2.推断JAVA_DLL文件位置，JVM.cfg文件
+    //3.根据JVM.cfg获取JVM_DLL位置,可以通过-XXaltJVM或者JDK_ALTERNATE_VM指定JVM_DLL
     CreateExecutionEnvironment(&argc, &argv,
                                jrepath, sizeof(jrepath),
                                jvmpath, sizeof(jvmpath),
                                jvmcfg,  sizeof(jvmcfg));
-
+    //初始设置函数指针为无效指针
     ifn.CreateJavaVM = 0;
     ifn.GetDefaultJavaVMInitArgs = 0;
-
+    //如果时debug的话，记录启动时间
     if (JLI_IsTraceLauncher()) {
         start = CounterGet();
     }
-
+    //动态加载JVM_DLL这个共享库，把hotspot的接口爆露出来，例如JNI_CreateJavaVM函数
+    //填充到ifn结构体中
     if (!LoadJavaVM(jvmpath, &ifn)) {
         return(6);
     }
-
+    //debug模式下记录加载java vm虚拟机时间
     if (JLI_IsTraceLauncher()) {
         end   = CounterGet();
     }
-
+    //打印加载javavm时间
     JLI_TraceLauncher("%ld micro seconds to LoadJavaVM\n",
              (long)(jint)Counter2Micros(end-start));
 
     ++argv;
     --argc;
-
+    //是否有参数
     if (IsJavaArgs()) {
         /* Preprocess wrapper arguments */
+        // 解析参数
         TranslateApplicationArgs(jargc, jargv, &argc, &argv);
         if (!AddApplicationOptions(appclassc, appclassv)) {
             return(1);
         }
     } else {
         /* Set default CLASSPATH */
+        // 设置环境变量中的classpath路径
         cpath = getenv("CLASSPATH");
         if (cpath == NULL) {
             cpath = ".";
@@ -277,25 +290,29 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
     /* Parse command line options; if the return value of
      * ParseArguments is false, the program should exit.
      */
+    // 解析命令行参数，如果解析失败则程序退出.如-version，-help等参数在该方法中解析的
     if (!ParseArguments(&argc, &argv, &mode, &what, &ret, jrepath))
     {
         return(ret);
     }
 
     /* Override class path if -jar flag was specified */
+    // 如果-jar参数指定的话，重写classpath值
     if (mode == LM_JAR) {
         SetClassPath(what);     /* Override class path */
     }
 
     /* set the -Dsun.java.command pseudo property */
+    //  解析形如-Dsun.java.command=的命令行参数
     SetJavaCommandLineProp(what, argc, argv);
 
     /* Set the -Dsun.java.launcher pseudo property */
+    // 解析形如-Dsun.java.launcher.*的命令行参数
     SetJavaLauncherProp();
 
     /* set the -Dsun.java.launcher.* platform properties */
     SetJavaLauncherPlatformProps();
-
+    //进行一系列处理，最终创建一个jvm的虚拟机并调用java运行入口函数
     return JVMInit(&ifn, threadStackSize, argc, argv, mode, what, ret);
 }
 /*
@@ -344,30 +361,34 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argc */
             LEAVE(); \
         } \
     } while (JNI_FALSE)
-
+// 虚拟机的入口函数
 int JNICALL
 JavaMain(void * _args)
 {
-    JavaMainArgs *args = (JavaMainArgs *)_args;
+    JavaMainArgs *args = (JavaMainArgs *)_args;       //获取参数
     int argc = args->argc;
     char **argv = args->argv;
     int mode = args->mode;
     char *what = args->what;
-    InvocationFunctions ifn = args->ifn;
-
+    InvocationFunctions ifn = args->ifn;            //当前虚拟机导致的函数指针
+                                                    //该机制可以保证同一环境配置多个jdk版本
     JavaVM *vm = 0;
     JNIEnv *env = 0;
-    jclass mainClass = NULL;
-    jclass appClass = NULL; // actual application class being launched
+    jclass mainClass = NULL;                        //main函数class
+    jclass appClass = NULL; // actual application class being launched // 正在启动的实际应用程序类
     jmethodID mainID;
     jobjectArray mainArgs;
     int ret = 0;
     jlong start, end;
 
-    RegisterThread();
+    RegisterThread();                            //window/类unix为空实现，macos特别处理
 
     /* Initialize the virtual machine */
+    // 初始化虚拟机
     start = CounterGet();
+    //通过CreateJavaVM导出jvm到&vm, &env
+    //&vm主要提供虚拟整体的操作
+    //&env主要提供虚拟启动的环境的操作
     if (!InitializeJVM(&vm, &env, &ifn)) {
         JLI_ReportErrorMessage(JVM_ERROR1);
         exit(1);
@@ -387,6 +408,7 @@ JavaMain(void * _args)
     }
 
     /* If the user specified neither a class name nor a JAR file */
+    // 如果没有指定class或者jar，则直接退出
     if (printXUsage || printUsage || what == 0 || mode == LM_UNKNOWN) {
         PrintUsage(env, printXUsage);
         CHECK_EXCEPTION_LEAVE(1);
@@ -394,7 +416,7 @@ JavaMain(void * _args)
     }
 
     FreeKnownVMs();  /* after last possible PrintUsage() */
-
+    // 记录初始化jvm时间
     if (JLI_IsTraceLauncher()) {
         end = CounterGet();
         JLI_TraceLauncher("%ld micro seconds to InitializeJVM\n",
@@ -402,6 +424,7 @@ JavaMain(void * _args)
     }
 
     /* At this stage, argc/argv have the application's arguments */
+    // 从argv获取应用的参数，打印参数
     if (JLI_IsTraceLauncher()){
         int i;
         printf("%s is '%s'\n", launchModeNames[mode], what);
@@ -436,7 +459,10 @@ JavaMain(void * _args)
      * This method also correctly handles launching existing JavaFX
      * applications that may or may not have a Main-Class manifest entry.
      */
+    // 加载Main class
+    // 从环境中取出java主类
     mainClass = LoadMainClass(env, mode, what);
+    // 检查是否指定main class， 不存在则退出虚拟机
     CHECK_EXCEPTION_NULL_LEAVE(mainClass);
     /*
      * In some cases when launching an application that needs a helper, e.g., a
@@ -444,7 +470,10 @@ JavaMain(void * _args)
      * applications own main class but rather a helper class. To keep things
      * consistent in the UI we need to track and report the application main class.
      */
+    // 获取应用的class文件
+    // JavaFX gui应用相关可忽略
     appClass = GetApplicationClass(env);
+    // 检查是否指定app class， 不存在返回-1
     NULL_CHECK_RETURN_VALUE(appClass, -1);
     /*
      * PostJVMInit uses the class name as the application name for GUI purposes,
@@ -453,6 +482,8 @@ JavaMain(void * _args)
      * instead of mainClass as that may be a launcher or helper class instead
      * of the application class.
      */
+    // window和类unix为空实现，在macos下设定gui程序的程序名称
+    // JavaFX gui应用相关可忽略
     PostJVMInit(env, appClass, vm);
     /*
      * The LoadMainClass not only loads the main class, it will also ensure
@@ -460,15 +491,18 @@ JavaMain(void * _args)
      * is not required. The main method is invoked here so that extraneous java
      * stacks are not in the application stack trace.
      */
+    // 从mainclass中加载静态main方法
     mainID = (*env)->GetStaticMethodID(env, mainClass, "main",
                                        "([Ljava/lang/String;)V");
     CHECK_EXCEPTION_NULL_LEAVE(mainID);
 
     /* Build platform specific argument array */
+    // 组装main函数参数
     mainArgs = CreateApplicationArgs(env, argv, argc);
     CHECK_EXCEPTION_NULL_LEAVE(mainArgs);
 
     /* Invoke main method. */
+    // 调用main方法，并把参数传递过去
     (*env)->CallStaticVoidMethod(env, mainClass, mainID, mainArgs);
 
     /*
@@ -476,6 +510,9 @@ JavaMain(void * _args)
      * System.exit) will be non-zero if main threw an exception.
      */
     ret = (*env)->ExceptionOccurred(env) == NULL ? 0 : 1;
+    //main方法执行完毕，JVM退出，包含两步：
+    //(*vm)->DetachCurrentThread，让当前Main线程同启动线程断联
+    //创建一个新的名为DestroyJavaVM的线程，让该线程等待所有的非后台进程退出，并在最后执行(*vm)->DestroyJavaVM方法。
     LEAVE();
 }
 
@@ -1869,9 +1906,9 @@ IsWildCardEnabled()
 {
     return _wc_enabled;
 }
-
+// 组织参数，执行真正的虚拟机入口函数
 int
-ContinueInNewThread(InvocationFunctions* ifn, jlong threadStackSize,
+ContinueInNewThread(InvocationFunctions* ifn/* 函数指针 */, jlong threadStackSize/* 线程栈大小 */,
                     int argc, char **argv,
                     int mode, char *what, int ret)
 {
@@ -1881,17 +1918,22 @@ ContinueInNewThread(InvocationFunctions* ifn, jlong threadStackSize,
      * Note that HotSpot no longer supports JNI_VERSION_1_1 but it will
      * return its default stack size through the init args structure.
      */
+     // 如果没有指定线程栈大小， 则会检查vm是否指定一个默认值.注意：虚拟机不再支持1.1，但是他会通过初始化参数返回一个默认的栈大小值.
     if (threadStackSize == 0) {
       struct JDK1_1InitArgs args1_1;
       memset((void*)&args1_1, 0, sizeof(args1_1));
+      //指定版本号
       args1_1.version = JNI_VERSION_1_1;
+      //通过虚拟机返回一个指定的参数值，该方法时从libjvm.so里面导出的函数指针
       ifn->GetDefaultJavaVMInitArgs(&args1_1);  /* ignore return value */
       if (args1_1.javaStackSize > 0) {
+      //如果查询到有效值，则会修改全局定义的栈大小
          threadStackSize = args1_1.javaStackSize;
       }
     }
 
     { /* Create a new thread to create JVM and invoke main method */
+      // 创建一个新线程去创建jvm，然后调用main方法
       JavaMainArgs args;
       int rslt;
 

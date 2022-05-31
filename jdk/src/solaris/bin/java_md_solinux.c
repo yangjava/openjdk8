@@ -997,22 +997,26 @@ void SplashFreeLibrary() {
 /*
  * Block current thread and continue execution in a new thread
  */
+// 尝试创建新线程执行代码逻辑，创建新线程失败则在当前线程执行代码逻辑
+// 暂停当前线程，然后继续执行一个新的线程
 int
-ContinueInNewThread0(int (JNICALL *continuation)(void *), jlong stack_size, void * args) {
+ContinueInNewThread0(int (JNICALL *continuation)(void *), //线程入口函数，在这里具体执行的时JavaMain方法
+                    jlong stack_size,                     //线程栈大小，会使用该值创建线程
+                    void * args) {                        //参数
     int rslt;
 #ifdef __linux__
     pthread_t tid;
     pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    pthread_attr_init(&attr);              //初始化线程
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); //可join线程
 
-    if (stack_size > 0) {
+    if (stack_size > 0) {   //如果给定的线程栈大小值有效，则设置创建线程的栈大小，否则使用默认值
       pthread_attr_setstacksize(&attr, stack_size);
     }
-
+    // 调用线程库创建线程，并设定入口函数为JavaMain
     if (pthread_create(&tid, &attr, (void *(*)(void*))continuation, (void*)args) == 0) {
       void * tmp;
-      pthread_join(tid, &tmp);
+      pthread_join(tid, &tmp);  // 创建成功后，并等待线程的结束，主线程挂起
       rslt = (int)tmp;
     } else {
      /*
@@ -1021,10 +1025,11 @@ ContinueInNewThread0(int (JNICALL *continuation)(void *), jlong stack_size, void
       * later in continuation as JNI_CreateJavaVM needs to create quite a
       * few new threads, anyway, just give it a try..
       */
+      // 如果因为某些条件导致创建线程失败，则在当前线程执行JavaMain方法
       rslt = continuation(args);
     }
 
-    pthread_attr_destroy(&attr);
+    pthread_attr_destroy(&attr);  //线程回收
 #else /* ! __linux__ */
     thread_t tid;
     long flags = 0;

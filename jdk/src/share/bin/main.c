@@ -75,7 +75,8 @@
 /*
  * Entry point.
  */
-#ifdef JAVAW
+//java虚拟机启动入口函数
+#ifdef JAVAW  //window平台入口
 
 char **__initenv;
 
@@ -88,12 +89,12 @@ WinMain(HINSTANCE inst, HINSTANCE previnst, LPSTR cmdline, int cmdshow)
 
     __initenv = _environ;
 
-#else /* JAVAW */
+#else /* JAVAW */  //linux平台入口函数
 int
 main(int argc, char **argv)
 {
-    int margc;
-    char** margv;
+    int margc;      // 参数个数
+    char** margv;   // 命令参数
     const jboolean const_javaw = JNI_FALSE;
 #endif /* JAVAW */
 #ifdef _WIN32
@@ -122,13 +123,14 @@ main(int argc, char **argv)
     margc = argc;
     margv = argv;
 #endif /* WIN32 */
-    return JLI_Launch(margc, margv,
-                   sizeof(const_jargs) / sizeof(char *), const_jargs,
-                   sizeof(const_appclasspath) / sizeof(char *), const_appclasspath,
-                   FULL_VERSION,
-                   DOT_VERSION,
-                   (const_progname != NULL) ? const_progname : *margv,
-                   (const_launcher != NULL) ? const_launcher : *margv,
-                   (const_jargs != NULL) ? JNI_TRUE : JNI_FALSE,
-                   const_cpwildcard, const_javaw, const_ergo_class);
+    //调用JLI_Launch执行java的执行体逻辑，参考代码jdk8u-dev/jdk/src/share/bin/java.c
+    return JLI_Launch(margc/* 命令参数个数 */, margv/* 参数数组 */,
+                   sizeof(const_jargs) / sizeof(char *)/* java args参数个数  */, const_jargs/* java参数 */,
+                   sizeof(const_appclasspath) / sizeof(char *)/* classpath 数量  */, const_appclasspath/* classpath参数  */,
+                   FULL_VERSION, //完整的版本号
+                   DOT_VERSION,  //版本号
+                   (const_progname != NULL) ? const_progname : *margv, //程序名称
+                   (const_launcher != NULL) ? const_launcher : *margv, //启动器名称
+                   (const_jargs != NULL) ? JNI_TRUE : JNI_FALSE, //默认为0
+                   const_cpwildcard/* 是否支持扩展classpath  默认为true */, const_javaw/*window下true， 其他false  */, const_ergo_class/* 运行模式  默认为DEFAULT_POLICY=0  其他包括NEVER_SERVER_CLASS、ALWAYS_SERVER_CLASS  */);
 }

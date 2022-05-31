@@ -31,12 +31,14 @@
 // some generation-specific behavior.  This is done here rather than as a
 // virtual function of Generation because these methods are needed in
 // initialization of the Generations.
+
+// GenerationSpec的定义在hotspot/src/share/vm/memory/generationSpec.hpp中，该类就是用来初始化Generation的
 class GenerationSpec : public CHeapObj<mtGC> {
   friend class VMStructs;
 private:
-  Generation::Name _name;
-  size_t           _init_size;
-  size_t           _max_size;
+  Generation::Name _name;         // _name表示 Generation的类型
+  size_t           _init_size;    // Generation的初始大小
+  size_t           _max_size;     // Generation的最大值
 
 public:
   GenerationSpec(Generation::Name name, size_t init_size, size_t max_size) {

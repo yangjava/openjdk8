@@ -85,6 +85,7 @@ jint GenCollectedHeap::initialize() {
   CollectedHeap::pre_initialize();
 
   int i;
+  // 根据GenCollectedHeap的定义可以看到，GenCollectedHeap最多支持10个分代
   _n_gens = gen_policy()->number_of_generations();
 
   // While there are no constraints in the GC code that HeapWordSize
@@ -95,6 +96,7 @@ jint GenCollectedHeap::initialize() {
   guarantee(HeapWordSize == wordSize, "HeapWordSize must equal wordSize");
 
   // The heap must be at least as aligned as generations.
+  // 每代的大小是基于GenGrain大小对齐的
   size_t gen_alignment = Generation::GenGrain;
 
   _gen_specs = gen_policy()->generations();
@@ -110,9 +112,9 @@ jint GenCollectedHeap::initialize() {
   size_t total_reserved = 0;
   int n_covered_regions = 0;
   ReservedSpace heap_rs;
-
+  // 获取各分代的管理器指针数组和永久代的管理器指针，并对齐各代的大小到64KB
   size_t heap_alignment = collector_policy()->heap_alignment();
-
+  // 调用allocate()为堆分配空间，其起始地址为heap_address
   heap_address = allocate(heap_alignment, &total_reserved,
                           &n_covered_regions, &heap_rs);
 
@@ -121,12 +123,14 @@ jint GenCollectedHeap::initialize() {
       "Could not reserve enough space for object heap");
     return JNI_ENOMEM;
   }
-
+  // 初始分配所得的空间将被封装在_reserved(CollectedHeap的MemRegion成员)中
   _reserved = MemRegion((HeapWord*)heap_rs.base(),
                         (HeapWord*)(heap_rs.base() + heap_rs.size()));
 
   // It is important to do this in a way such that concurrent readers can't
   // temporarily think somethings in the heap.  (Seen this happen in asserts.)
+
+  // 调整实际的堆大小为去掉永久代的misc_data和misc_code的空间，并创建一个覆盖整个空间的数组，数组每个字节对应于堆的512字节，用于遍历新生代和老年代空间
   _reserved.set_word_size(0);
   _reserved.set_start((HeapWord*)heap_rs.base());
   size_t actual_heap_size = heap_rs.size();
@@ -135,6 +139,7 @@ jint GenCollectedHeap::initialize() {
   _rem_set = collector_policy()->create_rem_set(_reserved, n_covered_regions);
   set_barrier_set(rem_set()->bs());
 
+  // 调用heap_rs的的first_part()，依次为新生代和老年代分配空间并调用各代管理器的init()将其初始化为Generation空间，最后为永久代分配空间和进行初始化
   _gch = this;
 
   for (i = 0; i < _n_gens; i++) {
@@ -156,7 +161,7 @@ jint GenCollectedHeap::initialize() {
   return JNI_OK;
 }
 
-
+// 那么GenCollectedHeap是如何向系统申请内存空间的呢？ 答案就在allocate()函数中
 char* GenCollectedHeap::allocate(size_t alignment,
                                  size_t* _total_reserved,
                                  int* _n_covered_regions,
@@ -165,6 +170,10 @@ char* GenCollectedHeap::allocate(size_t alignment,
     "the maximum representable size";
 
   // Now figure out the total size.
+  // 在申请之前，当然要对内存空间的大小和分块数进行计算
+  // 内存页的大小将根据虚拟机是否配置UseLargePages而不同，large_page_size在不同平台上表现不同，
+  // x86使用2/4M(物理地址扩展模式)的页大小，AMD64使用2M，否则，Linux默认内存页大小只有4KB，
+  // 接下来会以各代所配置的最大大小进行计算，若最大值设置为负数，那么jvm将报错退出，默认的新生代和老年代的分块数为1，而永久代的分块数为2
   size_t total_reserved = 0;
   int n_covered_regions = 0;
   const size_t pageSize = UseLargePages ?
@@ -173,6 +182,7 @@ char* GenCollectedHeap::allocate(size_t alignment,
   assert(alignment % pageSize == 0, "Must be");
 
   for (int i = 0; i < _n_gens; i++) {
+    // 加上永久代空间的大小和块数
     total_reserved += _gen_specs[i]->max_size();
     if (total_reserved < _gen_specs[i]->max_size()) {
       vm_exit_during_initialization(overflow_msg);

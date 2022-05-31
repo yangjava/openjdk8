@@ -39,7 +39,7 @@
 // For classes used as name spaces.
 // - AllStatic
 //
-
+// 这个就是堆对象的基类，可以看到其主要是定义了new、delete的重载方法。
 class CHeapObj {
  public:
   void* operator new(size_t size) throw();

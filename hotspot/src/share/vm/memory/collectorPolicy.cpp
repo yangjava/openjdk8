@@ -358,20 +358,24 @@ void GenCollectorPolicy::initialize_flags() {
 }
 
 void TwoGenerationCollectorPolicy::initialize_flags() {
+  //调用父类方法
   GenCollectorPolicy::initialize_flags();
-
+    //OldSize表示老年代的大小，如果OldSize没有按照_gen_alignment对齐
   if (!is_size_aligned(OldSize, _gen_alignment)) {
+    //重置OldSize
     FLAG_SET_ERGO(uintx, OldSize, align_size_down(OldSize, _gen_alignment));
   }
-
+  //如果OldSize通过命令行设置，MaxHeapSize是默认值
   if (FLAG_IS_CMDLINE(OldSize) && FLAG_IS_DEFAULT(MaxHeapSize)) {
     // NewRatio will be used later to set the young generation size so we use
     // it to calculate how big the heap should be based on the requested OldSize
     // and NewRatio.
+    // 根据NewRatio和OldSize计算允许的堆内存大小
     assert(NewRatio > 0, "NewRatio should have been set up earlier");
     size_t calculated_heapsize = (OldSize / NewRatio) * (NewRatio + 1);
 
     calculated_heapsize = align_size_up(calculated_heapsize, _heap_alignment);
+    //重置MaxHeapSize
     FLAG_SET_ERGO(uintx, MaxHeapSize, calculated_heapsize);
     _max_heap_byte_size = MaxHeapSize;
     FLAG_SET_ERGO(uintx, InitialHeapSize, calculated_heapsize);
@@ -379,11 +383,13 @@ void TwoGenerationCollectorPolicy::initialize_flags() {
   }
 
   // adjust max heap size if necessary
+  //如果MaxHeapSize通过命令行设置
   if (NewSize + OldSize > MaxHeapSize) {
     if (_max_heap_size_cmdline) {
       // somebody set a maximum heap size with the intention that we should not
       // exceed it. Adjust New/OldSize as necessary.
       uintx calculated_size = NewSize + OldSize;
+      //计算需要缩减的比例，然后计算并重置NewSize
       double shrink_factor = (double) MaxHeapSize / calculated_size;
       uintx smaller_new_size = align_size_down((uintx)(NewSize * shrink_factor), _gen_alignment);
       FLAG_SET_ERGO(uintx, NewSize, MAX2(young_gen_size_lower_bound(), smaller_new_size));
@@ -393,13 +399,16 @@ void TwoGenerationCollectorPolicy::initialize_flags() {
       // _heap_alignment, and we just made sure that NewSize is aligned to
       // _gen_alignment. In initialize_flags() we verified that _heap_alignment
       // is a multiple of _gen_alignment.
+      //重置OldSize
       FLAG_SET_ERGO(uintx, OldSize, MaxHeapSize - NewSize);
     } else {
+      // 不是通过命令行设置，重置MaxHeapSize
       FLAG_SET_ERGO(uintx, MaxHeapSize, align_size_up(NewSize + OldSize, _heap_alignment));
       _max_heap_byte_size = MaxHeapSize;
     }
   }
-
+  //是OopDesc的一个属性，如果true，则执行写Barrier时会将这个对象指针转换成volatile oop
+  //保证并发下，oop的修改能够及时在各CPU间同步
   always_do_update_barrier = UseConcMarkSweepGC;
 
   DEBUG_ONLY(TwoGenerationCollectorPolicy::assert_flags();)
@@ -415,6 +424,7 @@ void TwoGenerationCollectorPolicy::initialize_flags() {
 // In the absence of explicitly set command line flags, policies
 // such as the use of NewRatio are used to size the generation.
 void GenCollectorPolicy::initialize_size_info() {
+  //调用父类方法
   CollectorPolicy::initialize_size_info();
 
   // _space_alignment is used for alignment within a generation.
@@ -964,16 +974,19 @@ void MarkSweepPolicy::initialize_alignments() {
 }
 
 void MarkSweepPolicy::initialize_generations() {
+  //永久代初始化
   _generations = NEW_C_HEAP_ARRAY3(GenerationSpecPtr, number_of_generations(), mtGC, 0, AllocFailStrategy::RETURN_NULL);
   if (_generations == NULL) {
     vm_exit_during_initialization("Unable to allocate gen spec");
   }
-
+  // 若配置了UseParNewGC，并且并行GC线程数大于1，那么新生代就会使用ParNew实现
   if (UseParNewGC) {
     _generations[0] = new GenerationSpec(Generation::ParNew, _initial_gen0_size, _max_gen0_size);
   } else {
+    // 默认新生代使用DefNew实现
     _generations[0] = new GenerationSpec(Generation::DefNew, _initial_gen0_size, _max_gen0_size);
   }
+  // 老年代固定使用MarkSweepCompact实现
   _generations[1] = new GenerationSpec(Generation::MarkSweepCompact, _initial_gen1_size, _max_gen1_size);
 
   if (_generations[0] == NULL || _generations[1] == NULL) {

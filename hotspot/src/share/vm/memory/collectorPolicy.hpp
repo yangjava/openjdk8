@@ -98,7 +98,9 @@ class CollectorPolicy : public CHeapObj<mtGC> {
  public:
   virtual void initialize_all() {
     initialize_alignments();
+    // initialize_flags()初始化了永久代的一些大小配置参数
     initialize_flags();
+    // initialize_size_info()设置了Java堆大小的相关参数
     initialize_size_info();
   }
 
@@ -111,7 +113,7 @@ class CollectorPolicy : public CHeapObj<mtGC> {
   size_t initial_heap_byte_size() { return _initial_heap_byte_size; }
   size_t max_heap_byte_size()     { return _max_heap_byte_size; }
   size_t min_heap_byte_size()     { return _min_heap_byte_size; }
-
+  //
   enum Name {
     CollectorPolicyKind,
     TwoGenerationCollectorPolicyKind,
@@ -278,6 +280,7 @@ class GenCollectorPolicy : public CollectorPolicy {
 
   virtual void initialize_all() {
     CollectorPolicy::initialize_all();
+    // initialize_generations()根据用户参数，配置各内存代的管理器。
     initialize_generations();
   }
 
@@ -305,6 +308,9 @@ class GenCollectorPolicy : public CollectorPolicy {
 // of CollectorPolicy, this class should be broken out into
 // its own file.
 
+// TwoGenerationCollectorPolicy继承自GenCollectorPolicy，其定义也在collectorPolicy.hpp中，
+// 表示一个只有两个Generation的CollectorPolicy，现有的GenCollectedHeap的所有子类都是只有两个Generation，
+// 第一个Generation相同，对应GenCollectorPolicy中新增的gen0的相关属性，第二个Generation的实现各不相同。
 class TwoGenerationCollectorPolicy : public GenCollectorPolicy {
  protected:
   size_t _min_gen1_size;
@@ -344,6 +350,7 @@ class TwoGenerationCollectorPolicy : public GenCollectorPolicy {
 class MarkSweepPolicy : public TwoGenerationCollectorPolicy {
  protected:
   void initialize_alignments();
+  // initialize_generations()根据用户参数，配置各内存代的管理器。
   void initialize_generations();
 
  public:

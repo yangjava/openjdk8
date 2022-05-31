@@ -26,7 +26,9 @@
 #define SHARE_VM_GC_IMPLEMENTATION_CONCURRENTMARKSWEEP_CMSCOLLECTORPOLICY_HPP
 
 #include "memory/collectorPolicy.hpp"
-
+// ConcurrentMarkSweepPolicy在hotspot/src/share/vm/gc_implementation/concurrentMarkSweep/cmsCollectorPolicy.hpp中定义的，
+// 是UseConcMarkSweepGC为true但是UseAdaptiveSizePolicy为false时使用的CollectorPolicy实现。该类没有添加新的属性，重点关注initialize_alignments 和 initialize_generations方法的实现。
+// 这两方法在父类中都没有提供有效实现，两个都是在GenCollectorPolicy::initialize_all方法中调用的，先调用initialize_alignments，最后调用initialize_generations。
 class ConcurrentMarkSweepPolicy : public TwoGenerationCollectorPolicy {
  protected:
   void initialize_alignments();

@@ -81,6 +81,7 @@ class GCHeapLog : public EventLogBase<GCMessage> {
 //     G1CollectedHeap
 //   ParallelScavengeHeap
 //
+// 这个就是内存分配的操作类CollectedHeap，可以看到其有三个子类GenCollectedHeap、ParallelScavengeHeap、G1CollectedHeap，分别对应不同的垃圾回收器。
 class CollectedHeap : public CHeapObj<mtInternal> {
   friend class VMStructs;
   friend class IsGCActiveMark; // Block structured external access to _is_gc_active

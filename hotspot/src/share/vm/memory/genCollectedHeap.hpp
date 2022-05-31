@@ -34,6 +34,7 @@ class SubTasksDone;
 
 // A "GenCollectedHeap" is a SharedHeap that uses generational
 // collection.  It is represented with a sequence of Generation's.
+// 可以看到其定义了两个代类型YoungGen年轻代OldGen老年代。
 class GenCollectedHeap : public SharedHeap {
   friend class GenCollectorPolicy;
   friend class Generation;
@@ -51,6 +52,9 @@ class GenCollectedHeap : public SharedHeap {
   friend class GCCauseSetter;
   friend class VMStructs;
 public:
+ // 根据GenCollectedHeap的定义可以看到，GenCollectedHeap最多支持10个分代
+ // 其实并不需要这么多分代，MarkSweepPolicy、ConcurrentMarkSweepPolicy、ASConcurrentMarkSweepPolicy(ConcurrentMarkSweepPolicy的子类)均有着共同的祖先类TwoGenerationCollectorPolicy，
+ // 其分代只有2代，即新生代和老年代。
   enum SomeConstants {
     max_gens = 10
   };
@@ -63,6 +67,7 @@ public:
 
  private:
   int _n_gens;
+  // 根据GenCollectedHeap的定义可以看到，GenCollectedHeap最多支持10个分代
   Generation* _gens[max_gens];
   GenerationSpec** _gen_specs;
 
@@ -145,6 +150,8 @@ public:
   }
 
   // Return the (conservative) maximum heap alignment
+  // 每代的大小是基于GenGrain大小对齐的
+  // GenGrain定义在/hotspot/src/share/vm/memory/generation.h中，在非ARM平台中是2^16字节，即64KB大小
   static size_t conservative_max_heap_alignment() {
     return Generation::GenGrain;
   }

@@ -773,16 +773,16 @@ char* Universe::preferred_heap_base(size_t heap_size, size_t alignment, NARROW_O
   assert(is_ptr_aligned((char*)base, alignment), "Must be");
   return (char*)base; // also return NULL (don't care) for 32-bit VM
 }
-
+// 在虚拟机的创建初始化过程中，通过调用Universe的成员函数initialize_heap()将完成Java堆的初始化。
 jint Universe::initialize_heap() {
-
+// 若虚拟机配置UseParallelGC，则Java堆的堆类型为ParallelScavengeHeap(并行收集堆)
   if (UseParallelGC) {
 #if INCLUDE_ALL_GCS
     Universe::_collectedHeap = new ParallelScavengeHeap();
 #else  // INCLUDE_ALL_GCS
     fatal("UseParallelGC not supported in this VM.");
 #endif // INCLUDE_ALL_GCS
-
+// 若虚拟机配置UseG1GC，那么将选择堆类型为G1CollectedHeap，垃圾收集策略将使用专用的G1CollectorPolicy(垃圾优先收集)策略
   } else if (UseG1GC) {
 #if INCLUDE_ALL_GCS
     G1CollectorPolicy* g1p = new G1CollectorPolicy();
@@ -792,12 +792,14 @@ jint Universe::initialize_heap() {
 #else  // INCLUDE_ALL_GCS
     fatal("UseG1GC not supported in java kernel vm.");
 #endif // INCLUDE_ALL_GCS
-
+// 对于默认情况下的堆实现，还要根据配置选择垃圾回收策略gc_policy来构造一个GenCollectedHeap，这里根据虚拟机配置选择不同的GC策略
   } else {
     GenCollectorPolicy *gc_policy;
-
+    // 若虚拟机配置UseSerialGC，那么将使用MarkSweepPolicy(标记-清除)策略
     if (UseSerialGC) {
       gc_policy = new MarkSweepPolicy();
+      // 若虚拟机配置UseConcMarkSweepGC和UseAdaptiveSizePolicy，那么将使用ASConcurrentMarkSweepPolicy(自适应并发标记-清除)策略，
+      // 若没有指定UseAdaptiveSizePolicy，虚拟机将默认使用ConcurrentMarkSweepPolicy(并发标记-清除)策略
     } else if (UseConcMarkSweepGC) {
 #if INCLUDE_ALL_GCS
       if (UseAdaptiveSizePolicy) {
@@ -808,20 +810,28 @@ jint Universe::initialize_heap() {
 #else  // INCLUDE_ALL_GCS
     fatal("UseConcMarkSweepGC not supported in this VM.");
 #endif // INCLUDE_ALL_GCS
+    // 若没有进行配置，虚拟机将默认使用MarkSweepPolicy策略
     } else { // default old generation
       gc_policy = new MarkSweepPolicy();
     }
     gc_policy->initialize_all();
-
+    // 否则，虚拟机将使用GenCollectedHeap(分代收集堆)
     Universe::_collectedHeap = new GenCollectedHeap(gc_policy);
   }
-
+  // 接下来是相应实现的堆的初始化
   jint status = Universe::heap()->initialize();
   if (status != JNI_OK) {
     return status;
   }
-
+// 堆空间初始化完成后，是LP64平台上的指针压缩以及TLAB的相关内容 。
 #ifdef _LP64
+// 通常64位JVM消耗的内存会比32位的大1.5倍，这是因为在64位环境下，对象将使用64位指针，这就增加了一倍的指针占用内存开销。
+// 从JDK 1.6 update14开始，64 bit JVM正式支持了 -XX:+UseCompressedOops 选项来压缩指针，以节省内存空间。
+// 指针压缩的地址计算如下：
+//   addr = <narrow_oop_base> + <narrow_oop> << 3 + <field_offset>
+//   　　若堆寻址空间小于4GB(2^32)时，直接使用32位的压缩对象指针< narrow_oop >就可以找到该对象
+//   　　若堆寻址空间大于4GB(2^32)但小于32GB时，就必须借助偏移来获得真正的地址(对象是8字节对齐的)。
+//   　　若堆寻址空间大于32GB时，就需要借助堆的基址来完成寻址了，< narrow_oop_base >为堆的基址，< field_offset >为一页的大小。
   if (UseCompressedOops) {
     // Subtract a page because something can get allocated at heap base.
     // This also makes implicit null checking work, because the
@@ -835,6 +845,8 @@ jint Universe::initialize_heap() {
       tty->print("heap address: " PTR_FORMAT ", size: " SIZE_FORMAT " MB",
                  Universe::heap()->base(), Universe::heap()->reserved_region().byte_size()/M);
     }
+    // 若heap的地址空间的最大地址大于OopEncodingHeapMax(32GB)，
+    // 则设置基础地址为当前堆的起始地址-页大小，设置偏移为LogMinObjAlignmentInBytes(3)，即使用普通的对象指针压缩技术
     if (((uint64_t)Universe::heap()->reserved_region().end() > OopEncodingHeapMax)) {
       // Can't reserve heap below 32Gb.
       // keep the Universe::narrow_oop_base() set in Universe::reserve_heap()
@@ -844,6 +856,7 @@ jint Universe::initialize_heap() {
             narrow_oop_mode_to_string(HeapBasedNarrowOop),
             Universe::narrow_oop_base());
       }
+      // 否则设置基础地址为0
     } else {
       Universe::set_narrow_oop_base(0);
       if (verbose) {
@@ -856,6 +869,8 @@ jint Universe::initialize_heap() {
         Universe::set_narrow_oop_use_implicit_null_checks(true);
       }
 #endif //  _WIN64
+     // 若heap的地址空间的最大地址大于NarrowOopHeapMax(4GB，小于32GB)，
+     // 则设置偏移为LogMinObjAlignmentInBytes(默认为3)，即使用零基压缩技术，否则设置偏移为0，即直接使用压缩对象指针进行寻址
       if((uint64_t)Universe::heap()->reserved_region().end() > UnscaledOopHeapMax) {
         // Can't reserve heap below 4Gb.
         Universe::set_narrow_oop_shift(LogMinObjAlignmentInBytes);
