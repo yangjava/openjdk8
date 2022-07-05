@@ -57,8 +57,10 @@ class G1CollectorPolicy;
 class GCPolicyCounters;
 class MarkSweepPolicy;
 
+// CollectorPolicy的定义在hotspot/src/share/vm/memory/collectorPolicy.hpp中，该类及其子类用于定义垃圾回收器使用的全局属性，并初始化分代内存及其他共享资源。
 class CollectorPolicy : public CHeapObj<mtGC> {
  protected:
+ // _gc_policy_counters：跟踪分代内存的性能的计数器
   GCPolicyCounters* _gc_policy_counters;
 
   virtual void initialize_alignments() = 0;
@@ -68,22 +70,30 @@ class CollectorPolicy : public CHeapObj<mtGC> {
   DEBUG_ONLY(virtual void assert_flags();)
   DEBUG_ONLY(virtual void assert_size_info();)
 
+  // _initial_heap_byte_size：初始堆内存 
   size_t _initial_heap_byte_size;
+  // _max_heap_byte_size：最大堆内存
   size_t _max_heap_byte_size;
+  // _min_heap_byte_size：最小堆内存
   size_t _min_heap_byte_size;
 
+  // _space_alignment：space分配粒度
   size_t _space_alignment;
+  // heap分配粒度，_heap_alignment必须大于_space_alignment，且是_space_alignment的整数倍
   size_t _heap_alignment;
 
   // Needed to keep information if MaxHeapSize was set on the command line
   // when the flag value is aligned etc by ergonomics
+  // 是否通过命令行参数设置了最大堆内存
   bool _max_heap_size_cmdline;
 
   // The sizing of the heap are controlled by a sizing policy.
+  // 用来自适应调整堆内存大小的策略实现
   AdaptiveSizePolicy* _size_policy;
 
   // Set to true when policy wants soft refs cleared.
   // Reset to false by gc after it clears all soft refs.
+  // 是否需要清除所有的软引用，当软引用清除结束，垃圾回收器会将其置为false
   bool _should_clear_all_soft_refs;
 
   // Set to true by the GC if the just-completed gc cleared all
@@ -91,12 +101,15 @@ class CollectorPolicy : public CHeapObj<mtGC> {
   // set to false each time gc returns to the mutator.  For example, in the
   // ParallelScavengeHeap case the latter would be done toward the end of
   // mem_allocate() where it returns op.result()
+  // 当GC刚清除完所有的软引用时会设置该属性为true，当返回mutator时被设置成false
   bool _all_soft_refs_clear;
 
   CollectorPolicy();
 
  public:
+  // 构造方法调用后就会调用initialize_all方法
   virtual void initialize_all() {
+    // initialize_alignments用来初始化分代内存及内存分配相关属性的，没有默认实现
     initialize_alignments();
     // initialize_flags()初始化了永久代的一些大小配置参数
     initialize_flags();
@@ -113,7 +126,8 @@ class CollectorPolicy : public CHeapObj<mtGC> {
   size_t initial_heap_byte_size() { return _initial_heap_byte_size; }
   size_t max_heap_byte_size()     { return _max_heap_byte_size; }
   size_t min_heap_byte_size()     { return _min_heap_byte_size; }
-  //
+
+  // CollectorPolicy定义了一个枚举Name来描述子类的名称
   enum Name {
     CollectorPolicyKind,
     TwoGenerationCollectorPolicyKind,
@@ -202,6 +216,7 @@ class CollectorPolicy : public CHeapObj<mtGC> {
 
   // Do any updates required to global flags that are due to heap initialization
   // changes
+  // 当CollectedHeap初始化结束后就会调用post_heap_initialize对已初始化的参数做必要的更新
   virtual void post_heap_initialize() = 0;
 };
 
@@ -221,16 +236,22 @@ class ClearedAllSoftRefs : public StackObj {
   }
 };
 
+// GenCollectorPolicy继承自CollectorPolicy，表示分代内存使用的CollectorPolicy，同样定义在collectorPolicy.hpp中
 class GenCollectorPolicy : public CollectorPolicy {
  protected:
+  // _min_gen0_size：gen0的内存最小值
   size_t _min_gen0_size;
+  // _initial_gen0_size：gen0的内存初始值
   size_t _initial_gen0_size;
+  // _max_gen0_size：gen0的内存最大值
   size_t _max_gen0_size;
 
   // _gen_alignment and _space_alignment will have the same value most of the
   // time. When using large pages they can differ.
+  // _gen_alignment：分代内存分配粒度，_gen_alignment必须被_space_alignment整除，_heap_alignment被_gen_alignment整除
   size_t _gen_alignment;
-
+  
+  // _generations一种特殊的Generation实现
   GenerationSpec **_generations;
 
   // Return true if an allocation should be attempted in the older

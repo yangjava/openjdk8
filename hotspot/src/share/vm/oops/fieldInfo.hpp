@@ -35,6 +35,8 @@
 // array type.  FieldInfo generally shouldn't be used directly.
 // Fields should be queried either through InstanceKlass or through
 // the various FieldStreams.
+
+// 类中的成员变量信息 FieldInfo节点包含成员变量的名称，诸如public,private,static等的标志。
 class FieldInfo VALUE_OBJ_CLASS_SPEC {
   friend class fieldDescriptor;
   friend class JavaFieldStream;

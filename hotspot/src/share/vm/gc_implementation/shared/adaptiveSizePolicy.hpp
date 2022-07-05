@@ -38,12 +38,14 @@
 class elapsedTimer;
 class CollectorPolicy;
 
+// AdaptiveSizePolicy定义在hotspot/src/share/vm/gc_implementation/shared/adaptiveSizePolicy.hpp中，用于保存GC停顿和耗时等统计数据，并基于这些数据计算出各分代内存区的大小，从而实现动态的自适应调整各分代内存的大小
 class AdaptiveSizePolicy : public CHeapObj<mtGC> {
  friend class GCAdaptivePolicyCounters;
  friend class PSGCAdaptivePolicyCounters;
  friend class CMSGCAdaptivePolicyCounters;
  protected:
-
+  
+  // AdaptiveSizePolicy同样定义了一个描述子类的枚举GCPolicyKind
   enum GCPolicyKind {
     _gc_adaptive_size_policy,
     _gc_ps_adaptive_size_policy,
@@ -95,7 +97,8 @@ class AdaptiveSizePolicy : public CHeapObj<mtGC> {
   // This flag signals that GCTimeLimit is being exceeded
   // but may not have done so for the required number of consequetive
   // collections.
-
+   
+  // AdaptiveSizePolicy定义的属性基本都是各种维度的统计指标，比如GC耗时，GC间隔时间，GC停顿时间等 
   // Minor collection timers used to determine both
   // pause and interval times for collections.
   static elapsedTimer _minor_timer;

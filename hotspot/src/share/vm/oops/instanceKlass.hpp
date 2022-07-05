@@ -112,13 +112,17 @@ class FieldPrinter: public FieldClosure {
 
 // ValueObjs embedded in klass. Describes where oops are located in instances of
 // this klass.
+// OopMapBlock是一个简单的内嵌在Klass里面的数据结构，用来描述oop中包含的引用类型属性，即该oop所引用的其他oop在oop中的内存分布，然后就可以根据当前oop的地址找到所有引用的其他oop
+// OopMapBlock结构可以描述某个对象中引用区域的起始偏移和引用个数。
 class OopMapBlock VALUE_OBJ_CLASS_SPEC {
  public:
   // Byte offset of the first oop mapped by this block.
+  // offset描述第一个所引用的oop相对于当前oop地址的偏移量
   int offset() const          { return _offset; }
   void set_offset(int offset) { _offset = offset; }
 
   // Number of oops in this block.
+  // count表示包含的oop的个数，注意这里的包含并不是指这些oop位于OopMapBlock里面，而是有count个连续存放的oop。为啥会有多个OopMapBlock了？因为每个OopMapBlock只能描述当前子类中包含的引用类型属性，父类的引用类型属性由单独的OopMapBlock描述。 
   uint count() const         { return _count; }
   void set_count(uint count) { _count = count; }
 
@@ -135,6 +139,7 @@ class OopMapBlock VALUE_OBJ_CLASS_SPEC {
 
 struct JvmtiCachedClassFileData;
 
+// JVM在运行时，需要一种用来标识Java内部类型的机制。在HotSpot中的解决方案是：为每一个已加载的Java类创建一个instanceKlass对象，用来在JVM层表示Java类。
 class InstanceKlass: public Klass {
   friend class VMStructs;
   friend class ClassFileParser;
@@ -167,10 +172,14 @@ class InstanceKlass: public Klass {
 
   // See "The Java Virtual Machine Specification" section 2.16.2-5 for a detailed description
   // of the class loading & initialization procedure, and the use of the states.
+  // ClassState枚举类中定义的枚举常量
   enum ClassState {
+    // allocated状态表示已经分配内存，在InstanceKlass的构造函数中通常会将_init_state初始化为这个状态。
     allocated,                          // allocated (but not yet linked)
+    // loaded状态表示类已经装载并且已经插入到继承体系中，在 SystemDictionary::add_to_hierarchy()方法中会更新InstanceKlass的_init_state状态。
     loaded,                             // loaded and inserted in class hierarchy (but not linked yet)
-    linked,                             // successfully linked/verified (but not initialized yet)
+    // linked状态表示已经成功连接/校验，只在InstanceKlass::link_class_impl()方法中更新为这个状态。
+    linked,                             // successfully linked/verified (but not initialized yet) 连接包括验证、准备和解析阶段
     being_initialized,                  // currently running class initializer
     fully_initialized,                  // initialized (successfull final state)
     initialization_error                // error happened during initialization
@@ -260,6 +269,7 @@ class InstanceKlass: public Klass {
   // Class states are defined as ClassState (see above).
   // Place the _init_state here to utilize the unused 2-byte after
   // _idnum_allocated_count.
+  // 在连接类之前需要判断此类是否已经连接，之前介绍过，每个InstanceKlass中都定义了一个_init_state属性
   u1              _init_state;                    // state of class
   u1              _reference_type;                // reference type
 
@@ -448,6 +458,7 @@ class InstanceKlass: public Klass {
 
   // initialization state
   bool is_loaded() const                   { return _init_state >= loaded; }
+  // 通过_init_state属性的值来判断类是否已经验证过
   bool is_linked() const                   { return _init_state >= linked; }
   bool is_initialized() const              { return _init_state == fully_initialized; }
   bool is_not_initialized() const          { return _init_state <  being_initialized; }

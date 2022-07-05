@@ -68,6 +68,7 @@ class EventLog : public CHeapObj<mtInternal> {
 // providing a more featureful log function if the existing copy
 // semantics aren't appropriate.  The name is used as the label of the
 // log when it is dumped during a crash.
+// EventLogBase是一个模板类，主要定义了打印日志所需的基础属性。
 template <class T> class EventLogBase : public EventLog {
   template <class X> class EventRecord : public CHeapObj<mtInternal> {
    public:

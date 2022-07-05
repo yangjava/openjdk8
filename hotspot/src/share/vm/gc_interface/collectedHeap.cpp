@@ -52,6 +52,7 @@ void EventLogBase<GCMessage>::print(outputStream* st, GCMessage& m) {
   st->print_raw(m);
 }
 
+// 
 void GCHeapLog::log_heap(bool before) {
   if (!should_log()) {
     return;
@@ -60,9 +61,12 @@ void GCHeapLog::log_heap(bool before) {
   double timestamp = fetch_timestamp();
   MutexLockerEx ml(&_mutex, Mutex::_no_safepoint_check_flag);
   int index = compute_log_index();
+  // _records表示一个包含多条日志信息的数组，每个元素都包含一个GCMessage实例
   _records[index].thread = NULL; // Its the GC thread so it's not that interesting.
   _records[index].timestamp = timestamp;
+  // data属性实际就是这条日志对应的GCMessage实例
   _records[index].data.is_before = before;
+  // stringStream实际将日志写入到GCMessage实例的char数组中保存
   stringStream st(_records[index].data.buffer(), _records[index].data.size());
   if (before) {
     Universe::print_heap_before_gc(&st, true);
@@ -100,7 +104,9 @@ MetaspaceSummary CollectedHeap::create_metaspace_summary() {
   return MetaspaceSummary(meta_space, data_space, class_space);
 }
 
+// 
 void CollectedHeap::print_heap_before_gc() {
+  // PrintHeapAtGC表示是否在每次GC前后打印出堆结构，默认为false
   if (PrintHeapAtGC) {
     Universe::print_heap_before_gc();
   }

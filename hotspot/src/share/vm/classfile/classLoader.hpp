@@ -144,6 +144,7 @@ class PackageHashtable;
 class PackageInfo;
 template <MEMFLAGS F> class HashtableBucket;
 
+// 类加载器
 class ClassLoader: AllStatic {
  public:
   enum SomeConstants {
@@ -188,10 +189,13 @@ class ClassLoader: AllStatic {
   static PerfCounter* _load_instance_class_failCounter;
 
   // First entry in linked list of ClassPathEntry instances
+  // ClassPathEntry类指针，ClassPathEntry用于表示单个classpath路径，所有的ClassPathEntry实例以链表的形式关联起来，_first_entry表示链表的第一个实例
   static ClassPathEntry* _first_entry;
   // Last entry in linked list of ClassPathEntry instances
+  // 表示链表的最后一个实例
   static ClassPathEntry* _last_entry;
   // Hash table used to keep track of loaded packages
+  // 用于保存已经加载过的包名
   static PackageHashtable* _package_hash_table;
   static const char* _shared_archive;
 
@@ -206,6 +210,7 @@ class ClassLoader: AllStatic {
 
   // Initialization
   static void setup_meta_index();
+  // 设置加载路径
   static void setup_bootstrap_search_path();
   static void load_zip_library();
   static ClassPathEntry* create_class_path_entry(char *path, const struct stat* st,
@@ -282,6 +287,7 @@ class ClassLoader: AllStatic {
   }
 
   // Load individual .class file
+  // 加载类
   static instanceKlassHandle load_classfile(Symbol* h_name, TRAPS);
 
   // If the specified package has been loaded by the system, then returns
@@ -299,6 +305,7 @@ class ClassLoader: AllStatic {
   static objArrayOop get_system_packages(TRAPS);
 
   // Initialization
+  // 初始化类加载器
   static void initialize();
   static void create_package_info_table();
   static void create_package_info_table(HashtableBucket<mtClass> *t, int length,

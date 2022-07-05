@@ -56,12 +56,24 @@ class CMSIsAliveClosure;
 class PSPromotionManager;
 class ParCompactionManager;
 
+// Hotspot虚拟机采用OOP-Klass模型来描述Java对象实例，OOP(Ordinary Object Point)指的是普通对象指针，Klass用来描述对象实例的具体类型。
+
+// oopDesc的一个别名为oop，所以HotSpot中一般会使用oop来表示oopDesc类型。
+// oopDesc 是所有的类名为xxxOopDesc格式的类的基类 , 这些类的实例表示Java对象，所以xxxOopDesc格式的类中会声明一些保存 Java 对象的字段，并且也可以直接被 C++获取。
 class oopDesc {
   friend class VMStructs;
+
+// Java对象内存布局主要分为header（头部）和fields（实例字段）。header由_mark和_metadata组成。 
  private:
+  // _mark字段保存了Java对象的一些信息，如GC年龄，锁状态等；
+  // Mark Word：instanceOopDesc中的_mark成员，允许压缩。它用于存储对象的运行时记录信息，如哈希值、GC分代年龄(Age)、锁状态标志（偏向锁、轻量级锁、重量级锁）、线程持有的锁、偏向线程ID、偏向时间戳等
   volatile markOop  _mark;
+  // _metadata使用联合体（union）来声明 ，这样是为了在 64 位机器上能对指针进行压缩。 
+  // 元数据指针：instanceOopDesc中的_metadata成员，它是联合体，可以表示未压缩的Klass指针(_klass)和压缩的Klass指针。对应的klass指针指向一个存储类的元数据的Klass对象
   union _metadata {
+  // 联合体中定义的_klass或_compressed_klass指针指向的是Klass实例，这个Klass实例保存了Java对象的实际类型，也就是Java对象所对应的Java类。
     Klass*      _klass;
+  // 对象头默认情况占16字节, 在开启压缩对象指针时(通过-XX:+UseCompressedClassPointers), 占12字节, 默认状态是开启的.  
     narrowKlass _compressed_klass;
   } _metadata;
 

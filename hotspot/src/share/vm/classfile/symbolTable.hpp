@@ -74,21 +74,28 @@ class TempNewSymbol : public StackObj {
   operator Symbol*()                             { return _temp; }
 };
 
+// SymbolTable和StringTable类的定义位于classfile/symbolTable.hpp中，对应于C/C++编译过程的符号表，用于保存管理所有的Symbol实例
+// 即SymbolTable和StringTable实际是一个支持自动扩容的HashMap。 
 class SymbolTable : public Hashtable<Symbol*, mtSymbol> {
   friend class VMStructs;
   friend class ClassFileParser;
 
 private:
   // The symbol table
+  // _the_table：SymbolTable指针，即全局实际保存Symbol实例的地方
   static SymbolTable* _the_table;
 
   // Set if one bucket is out of balance due to hash algorithm deficiency
+  // bool变量，是否需要重新hash
   static bool _needs_rehashing;
 
   // For statistics
+  // int变量，已经被移除的Symbol的数量
   static int symbols_removed;
+  // int变量，当前的Symbol的属性
   static int symbols_counted;
-
+  
+  // Symbol创建，释放和查找相关的，如allocate_symbol，new_symbols，new_symbol，release，lookup，probe等方法
   Symbol* allocate_symbol(const u1* name, int len, bool c_heap, TRAPS); // Assumes no characters larger than 0x7F
 
   // Adding elements
@@ -117,6 +124,7 @@ private:
                 number_of_entries) {}
 
   // Arena for permanent symbols (null class loader) that are never unloaded
+  // Arena类指针，表示从未被加载过的描述符
   static Arena*  _arena;
   static Arena* arena() { return _arena; }  // called for statistics
 
@@ -134,6 +142,7 @@ public:
   // Size of one bucket in the string table.  Used when checking for rollover.
   static uint bucket_size() { return sizeof(HashtableBucket<mtSymbol>); }
 
+  // HashTable自身创建复制相关的，如create_table，copy_buckets，copy_table，rehash_table等。 
   static void create_table() {
     assert(_the_table == NULL, "One symbol table allowed.");
     _the_table = new SymbolTable();
@@ -237,17 +246,21 @@ public:
   static bool needs_rehashing()         { return _needs_rehashing; }
 };
 
+// StringTable就是Java特有的字符串常量池。
 class StringTable : public Hashtable<oop, mtSymbol> {
   friend class VMStructs;
 
 private:
   // The string table
+  // _the_table：StringTable指针，全局实际保存字符串的地方
   static StringTable* _the_table;
 
   // Set if one bucket is out of balance due to hash algorithm deficiency
+  // _needs_rehashing：bool变量，是否需要重新hash
   static bool _needs_rehashing;
 
   // Claimed high water mark for parallel chunked scanning
+  // _parallel_claimed_idx：volatile int变量，并发标记时使用
   static volatile int _parallel_claimed_idx;
 
   static oop intern(Handle string_or_null, jchar* chars, int length, TRAPS);

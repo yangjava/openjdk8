@@ -55,12 +55,17 @@ class nmethod;
 //
 // Implements roll-forward to safepoint (safepoint synchronization)
 //
+// SafepointSynchronize的定义位于hotspot\src\share\vm\runtime\safepoint.hpp中，用来实现安全点的进入和退出
 class SafepointSynchronize : AllStatic {
  public:
+  // SynchronizeState是一个枚举，用来描述安全点的状态
   enum SynchronizeState {
+     // 0表示所有线程都不在安全点上
       _not_synchronized = 0,                   // Threads not synchronized at a safepoint
                                                // Keep this value 0. See the coment in do_call_back()
+      // 1表示所有线程在执行安全点同步中                                         
       _synchronizing    = 1,                   // Synchronizing in progress
+      // 2表示所有线程都停留在安全点上，只有VMThread在执行。
       _synchronized     = 2                    // All Java threads are stopped at a safepoint. Only VM thread is running
   };
 
@@ -74,7 +79,8 @@ class SafepointSynchronize : AllStatic {
     _spinning_timeout = 0,
     _blocking_timeout = 1
   };
-
+  
+  // SafepointStats是一个数据结构，用来记录触发本次安全点的相关信息
   typedef struct {
     float  _time_stamp;                        // record when the current safepoint occurs in seconds
     int    _vmop_type;                         // type of VM operation triggers the safepoint
@@ -91,8 +97,11 @@ class SafepointSynchronize : AllStatic {
   } SafepointStats;
 
  private:
+  // 表示安全点的状态
   static volatile SynchronizeState _state;     // Threads might read this flag directly, without acquireing the Threads_lock
+  // 等待被阻塞（同步）的线程数
   static volatile int _waiting_to_block;       // number of threads we are waiting for to block
+  // 记录安全点期间处于JNI关键区的线程的总数
   static int _current_jni_active_count;        // Counts the number of active critical natives during the safepoint
 
   // This counter is used for fast versions of jni_Get<Primitive>Field.
@@ -102,13 +111,18 @@ class SafepointSynchronize : AllStatic {
   // increments (at the beginning and end of each safepoint) guarantees
   // race freedom.
 public:
+  // 进入和退出安全点的总次数，进入和退出时都会加1
   static volatile int _safepoint_counter;
 private:
+  // 上一次退出安全点的时间
   static long       _end_of_last_safepoint;     // Time of last safepoint in milliseconds
 
   // statistics
+  // 进入安全点的时间，单位是纳秒
   static jlong            _safepoint_begin_time;     // time when safepoint begins
+  // SafepointStats数组，剩下几个参数都是跟SafepointStats配合使用，用来统计安全点相关的数据
   static SafepointStats*  _safepoint_stats;          // array of SafepointStats struct
+  // 
   static int              _cur_stat_index;           // current index to the above array
   static julong           _safepoint_reasons[];      // safepoint count for each VM op
   static julong           _coalesced_vmop_count;     // coalesced vmop count

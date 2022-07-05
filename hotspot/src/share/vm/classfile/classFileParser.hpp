@@ -41,6 +41,7 @@ class FieldLayoutInfo;
 //
 // The bytes describing the class file structure is read from a Stream object
 
+// ClassFileParser类来辅助读取及保存类解析的相关信息，类及重要属性的定义
 class ClassFileParser VALUE_OBJ_CLASS_SPEC {
  private:
   bool _need_verify;
@@ -69,10 +70,14 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
   // if not transferred to the InstanceKlass upon successful class loading
   // in which case these pointers have been set to NULL.
   instanceKlassHandle _super_klass;
+  // 通过_cp保存常量池信息
   ConstantPool*    _cp;
+  // 通过_fields保存域信息
   Array<u2>*       _fields;
+  // 通过_methods保存方法
   Array<Method*>*  _methods;
   Array<u2>*       _inner_classes;
+  // 通过_klass保存类相关的信息
   Array<Klass*>*   _local_interfaces;
   Array<Klass*>*   _transitive_interfaces;
   AnnotationArray* _annotations;
@@ -196,7 +201,7 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
 
   enum { fixed_buffer_size = 128 };
   u_char linenumbertable_buffer[fixed_buffer_size];
-
+  // _stream属性保存的是字节码文件流
   ClassFileStream* _stream;              // Actual input stream
 
   enum { LegalClass, LegalField, LegalMethod }; // used to verify unqualified names

@@ -100,10 +100,19 @@
 class BasicLock;
 class ObjectMonitor;
 class JavaThread;
-
+// 
+// lock：2位的锁状态标记位，由于希望用尽可能少的二进制位表示尽可能多的信息，所以设置了lock标记。该标记的值不同，整个Mark Word表示的含义不同。biased_lock和lock一起表示了锁的状态；
+// biased_lock：对象是否启用偏向锁标记，只占1个二进制位。为1时表示对象启用偏向锁，为0时表示对象没有偏向锁。lock和biased_lock共同表示对象的锁状态；
+// age：占用4个二进制位，存储的是Java对象的年龄。在GC中，如果对象在Survivor区复制一次，年龄增加1。当对象达到设定的阈值时，将会晋升到老年代。默认情况下，并行GC的年龄阈值为15，并发GC的年龄阈值为6。由于age只有4位，所以最大值为15，这就是-XX:MaxTenuringThreshold选项最大值为15的原因；
+// identity_hashcode：占用31个二进制位，用来存储对象的HashCode，采用延迟加载技术。调用方法System.identityHashCode()计算，并会将结果写到该对象头中。如果当前对象的锁状态为偏向锁，由于偏向锁没有存储HashCode的地方，所以调用identityHashCode()方法会造成锁升级，而轻量级锁和重量级锁所指向的lock record或monitor都有存储HashCode的空间。hashCode 只针对 identity hash code。用户自定义的 hashCode() 方法所返回的值不存在 Mark Word 中。Identity hash code 是未被覆写的 java.lang.Object.hashCode() 或者 java.lang.System.identityHashCode(Object) 所返回的值；
+// thread：持有偏向锁的线程ID；
+// epoch：偏向锁的时间戳；
+// ptr_to_lock_record：轻量级锁状态下，指向栈中锁记录的指针；
+// ptr_to_heavyweight_monitor：重量级锁状态下，指向对象监视器Monitor的指针。
 class markOopDesc: public oopDesc {
  private:
   // Conversion
+  // 该函数里返回了自身(指向该对象的指针)，并强转为uintptr_t类型。64位的机器，uintprt_t表示8字节的无符号整形。
   uintptr_t value() const { return (uintptr_t) this; }
 
  public:
@@ -154,9 +163,10 @@ class markOopDesc: public oopDesc {
     const static uintptr_t hash_mask_in_place  =
                             (address_word)hash_mask << hash_shift;
 #endif
-
-  enum { locked_value             = 0,
-         unlocked_value           = 1,
+  
+  // JVM定义的锁状态
+  enum { locked_value             = 0,    
+         unlocked_value           = 1,    
          monitor_value            = 2,
          marked_value             = 3,
          biased_lock_pattern      = 5
@@ -211,6 +221,7 @@ class markOopDesc: public oopDesc {
   }
 
   // lock accessors (note that these assume lock_shift == 0)
+  // 判断锁的状态
   bool is_locked()   const {
     return (mask_bits(value(), lock_mask_in_place) != unlocked_value);
   }

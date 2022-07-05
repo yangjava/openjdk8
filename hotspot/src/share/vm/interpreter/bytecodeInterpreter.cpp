@@ -1962,12 +1962,16 @@ run:
 
           UPDATE_PC_AND_TOS_AND_CONTINUE(3, count);
         }
-
+      
       CASE(_new): {
+        // 获取操作数栈中目标类的符号引用在常量池的索引
         u2 index = Bytes::get_Java_u2(pc+1);
+        // 获取当前执行的方法的类的常量池，istate是当前字节码解释器BytecodeInterpreter实例的指针
         ConstantPool* constants = istate->method()->constants();
+        //如果目标类已经解析
         if (!constants->tag_at(index).is_unresolved_klass()) {
           // Make sure klass is initialized and doesn't have a finalizer
+          // 校验从常量池获取的解析结果Klass指针是否是InstanceKlass指针，
           Klass* entry = constants->slot_at(index).get_klass();
           assert(entry->is_klass(), "Should be resolved klass");
           Klass* k_entry = (Klass*) entry;

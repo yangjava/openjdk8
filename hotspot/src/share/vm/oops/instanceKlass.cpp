@@ -602,6 +602,14 @@ bool InstanceKlass::link_class_or_fail(TRAPS) {
   return is_linked();
 }
 
+// 调用InstanceKlass::link_class_impl()方法进行类的连接，类连接的步骤
+
+// 连接父类和实现的接口。因为根据虚拟机规范，子类的初始化必然会导致父类的初始化，所以子类在连接之前自然要保证父类已经连接；
+// 进行字节码验证；
+// 重写类；
+// 连接方法；
+// 初始化vtable和itable；
+// 将类的状态标记为已连接。
 bool InstanceKlass::link_class_impl(
     instanceKlassHandle this_oop, bool throw_verifyerror, TRAPS) {
   // check for error state
@@ -611,6 +619,7 @@ bool InstanceKlass::link_class_impl(
                this_oop->external_name(), false);
   }
   // return if already verified
+  //  通过_init_state属性的值来判断类是否已经验证过
   if (this_oop->is_linked()) {
     return true;
   }
@@ -621,6 +630,7 @@ bool InstanceKlass::link_class_impl(
   JavaThread* jt = (JavaThread*)THREAD;
 
   // link super class before linking this class
+  // 在连接子类之前先连接父类
   instanceKlassHandle super(THREAD, this_oop->super());
   if (super.not_null()) {
     if (super->is_interface()) {  // check if super class is an interface
@@ -634,16 +644,20 @@ bool InstanceKlass::link_class_impl(
       );
       return false;
     }
-
+    
+    // 递归调用此方法进行连接操作
     link_class_impl(super, throw_verifyerror, CHECK_false);
   }
 
   // link all interfaces implemented by this class before linking this class
+
+  // 连接该类实现的所有接口
   Array<Klass*>* interfaces = this_oop->local_interfaces();
   int num_interfaces = interfaces->length();
   for (int index = 0; index < num_interfaces; index++) {
     HandleMark hm(THREAD);
     instanceKlassHandle ih(THREAD, interfaces->at(index));
+    // 递归调用此方法进行连接操作
     link_class_impl(ih, throw_verifyerror, CHECK_false);
   }
 
@@ -680,6 +694,7 @@ bool InstanceKlass::link_class_impl(
                                    jt->get_thread_stat()->perf_recursion_counts_addr(),
                                    jt->get_thread_stat()->perf_timers_addr(),
                                    PerfClassTraceTime::CLASS_VERIFY);
+          // 进行字节码验证
           bool verify_ok = verify_code(this_oop, throw_verifyerror, THREAD);
           if (!verify_ok) {
             return false;
@@ -689,21 +704,25 @@ bool InstanceKlass::link_class_impl(
         // Just in case a side-effect of verify linked this class already
         // (which can sometimes happen since the verifier loads classes
         // using custom class loaders, which are free to initialize things)
+        // 可能有时候会在验证的过程中导致类已经被连接，不过并不会进行类的初始化
         if (this_oop->is_linked()) {
           return true;
         }
 
         // also sets rewritten
+        // 重写类
         this_oop->rewrite_class(CHECK_false);
       }
 
       // relocate jsrs and link methods after they are all rewritten
+      // 完成类的重写后进行方法连接
       this_oop->link_methods(CHECK_false);
 
       // Initialize the vtable and interface table after
       // methods have been rewritten since rewrite may
       // fabricate new Method*s.
       // also does loader constraint checking
+      // 初始化vtable和itable
       if (!this_oop()->is_shared()) {
         ResourceMark rm(THREAD);
         this_oop->vtable()->initialize_vtable(true, CHECK_false);
@@ -717,6 +736,7 @@ bool InstanceKlass::link_class_impl(
         // this_oop->itable()->verify(tty, true);
       }
 #endif
+      // 将类的状态标记为已连接状态
       this_oop->set_init_state(linked);
       if (JvmtiExport::should_post_class_prepare()) {
         Thread *thread = THREAD;

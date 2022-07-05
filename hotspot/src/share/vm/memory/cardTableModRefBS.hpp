@@ -46,6 +46,7 @@ class OopsInGenClosure;
 class DirtyCardToOopClosure;
 class ClearNoncleanCardWrapper;
 
+// ModRefBarrierSet继承自BarrierSet，表示一个只支持引用字段类型修改的BarrierSet ModRefBarrierSet在同目录的modRefBarrierSet.hpp中
 class CardTableModRefBS: public ModRefBarrierSet {
   // Some classes get to look at some private stuff.
   friend class BytecodeInterpreter;
@@ -95,17 +96,25 @@ class CardTableModRefBS: public ModRefBarrierSet {
 
   // The declaration order of these const fields is important; see the
   // constructor before changing.
+  // _whole_heap：卡表对应的堆内存区域
   const MemRegion _whole_heap;       // the region covered by the card table
+  // _guard_index：卡表中最后一个元素的索引
   const size_t    _guard_index;      // index of very last element in the card
                                      // table; it is set to a guard value
                                      // (last_card) and should never be modified
+  // _last_valid_index：卡表中最后一个有效元素的索引
   const size_t    _last_valid_index; // index of the last valid element
+  // _page_size：映射_byte_map时的内存页大小
   const size_t    _page_size;        // page size used when mapping _byte_map
+  // _byte_map_size：_byte_map的字节数，即元素个数
   const size_t    _byte_map_size;    // in bytes
+  // _byte_map：用于标记的卡表字节数组
   jbyte*          _byte_map;         // the card marking array
-
+  
+  // _cur_covered_regions：当前的MemRegion在_covered数组的索引
   int _cur_covered_regions;
   // The covered regions should be in address order.
+  // _covered：卡表映射的内存区域
   MemRegion* _covered;
   // The committed regions correspond one-to-one to the covered regions.
   // They represent the card-table memory that has been committed to service
@@ -113,11 +122,13 @@ class CardTableModRefBS: public ModRefBarrierSet {
   // one covered region corresponds to a larger region because of page-size
   // roundings.  Thus, a committed region for one covered region may
   // actually extend onto the card-table space for the next covered region.
+  // _committed：与_covered中的MemRegion一一对应，表示对应的卡表项内存区域，当_covered中的元素内存扩容或者缩容时，_committed中对应的卡表项内存会跟着扩容或者缩容
   MemRegion* _committed;
 
   // The last card is a guard card, and we commit the page for it so
   // we can use the card for verification purposes. We make sure we never
   // uncommit the MemRegion for that page.
+  // _guard_region：位于_guard_index的卡表项对应的一个内存页
   MemRegion _guard_region;
 
  protected:
@@ -209,6 +220,7 @@ class CardTableModRefBS: public ModRefBarrierSet {
   // previous chunk, or else NULL.
   typedef jbyte*  CardPtr;
   typedef CardPtr* CardArr;
+  // _lowest_non_clean：下列四个数组的长度都跟_covered数组保持一致，为了支持并行的扫描卡表
   CardArr* _lowest_non_clean;
   size_t*  _lowest_non_clean_chunk_size;
   uintptr_t* _lowest_non_clean_base_chunk_index;
@@ -347,6 +359,7 @@ public:
   // This would be the 0th element of _byte_map, if the heap started at 0x0.
   // But since the heap starts at some higher address, this points to somewhere
   // before the beginning of the actual _byte_map.
+  // byte_map_base：用于计算某个地址映射到卡表字节数组的基地址
   jbyte* byte_map_base;
 
   // Return true if "p" is at the start of a card.

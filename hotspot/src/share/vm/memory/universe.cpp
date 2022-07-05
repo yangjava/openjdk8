@@ -1320,12 +1320,15 @@ void Universe::print_heap_at_SIGBREAK() {
 }
 
 void Universe::print_heap_before_gc(outputStream* st, bool ignore_extended) {
+  // Universe最终是调用heap的方法
   st->print_cr("{Heap before GC invocations=%u (full %u):",
                heap()->total_collections(),
                heap()->total_full_collections());
+  // PrintHeapAtGCExtended表示是否打印额外的更详细的有关堆结构的信息，当PrintHeapAtGC为true时使用
   if (!PrintHeapAtGCExtended || ignore_extended) {
     heap()->print_on(st);
   } else {
+    // 打印额外的GC信息
     heap()->print_extended_on(st);
   }
 }

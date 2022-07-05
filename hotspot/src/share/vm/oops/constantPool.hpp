@@ -59,6 +59,8 @@
 
 class SymbolHashMap;
 
+// 常量池的每项数据都通过类CPSlot表示，其定义跟ConstantPool类位于同一个文件中，只有一个属性，
+// 解析结果Klass或者Symbol的地址，如果未解析则地址是0，可以将该地址转换成Klass或者Symbol类的指针，定义了对应的转换方法（get_symbol和get_klass方法）和判断该数据项是否已经解析的方法（is_resolved和is_unresolved方法）。
 class CPSlot VALUE_OBJ_CLASS_SPEC {
   intptr_t _ptr;
  public:
@@ -81,19 +83,29 @@ class CPSlot VALUE_OBJ_CLASS_SPEC {
 };
 
 class KlassSizeStats;
+
+// ConstantPool类，这个类的对象代码具体的常量池，保存着常量池元信息。类表示常量池元信息，所以继承了类Metadata。
+// ConstantPool类的定义位于oops/constantPool.hpp文件中，用于表示class文件中的常量池，每个Klass都有对应的ConstantPool，两者是一一对应的。
+// 常量池的数据大部分是在class文件解析的时候写入的，可以安全访问；但是CONSTANT_Class_info类型的常量数据是在这个类被解析时修改，这时只能通过解析状态判断这条数据是否修改完成。
 class ConstantPool : public Metadata {
   friend class VMStructs;
   friend class BytecodeInterpreter;  // Directly extracts an oop in the pool for fast instanceof/checkcast
   friend class Universe;             // For null constructor
  private:
+  // _tags：单字节数组指针，描述常量池所有数据的类型的tag数组，每个tag用一个单字节表示
   Array<u1>*           _tags;        // the tag array describing the constant pool's contents
+  // _cache：辅助解释运行来保存一些信息，ConstantPoolCache类指针，保存解释器运行时用到的动态调用相关信息的缓存
   ConstantPoolCache*   _cache;       // the cache holding interpreter runtime information
+  // _pool_holder：InstanceKlass指针，当前常量池所属的Klass实例
   InstanceKlass*       _pool_holder; // the corresponding class
+  // _operands：两字节的数组指针，为大小可变的常量池数据项使用，通常为空
   Array<u2>*           _operands;    // for variable-sized (InvokeDynamic) nodes, usually empty
 
   // Array of resolved objects from the constant pool and map from resolved
   // object index to original constant pool index
+  // _resolved_references：jobject类型，实际是_jobject指针的别名，_jobject等同于C++层面的Java Object对象，表示已经解析的对象数组
   jobject              _resolved_references;
+  // _reference_map：两字节的数组指针，表示已经解析的对象的索引到原始的常量池的索引的映射关系
   Array<u2>*           _reference_map;
 
   enum {
@@ -102,6 +114,7 @@ class ConstantPool : public Metadata {
   };
 
   int                  _flags;  // old fashioned bit twiddling
+  // _length表示常量池中的总项数，所以_tags数组的长度也为_length
   int                  _length; // number of elements in the array
 
   union {
@@ -112,7 +125,8 @@ class ConstantPool : public Metadata {
   } _saved;
 
   Monitor*             _lock;
-
+  
+  // 属性读写的方法，如tags，set_tags，flags，set_flags，pool_holder，set_pool_holder，cache，set_cache等方法
   void set_tags(Array<u1>* tags)               { _tags = tags; }
   void tag_at_put(int which, jbyte t)          { tags()->at_put(which, t); }
   void release_tag_at_put(int which, jbyte t)  { tags()->release_at_put(which, t); }
@@ -138,6 +152,8 @@ class ConstantPool : public Metadata {
     assert(s.value() != 0, "Caught something");
     *(intptr_t*)&base()[which] = s.value();
   }
+
+  // 读取基地址指定偏移位置的值的方法，如obj_at_addr_raw，long_at_addr，double_at_addr等方法
   intptr_t* obj_at_addr_raw(int which) const {
     assert(is_within_bounds(which), "index out of bounds");
     return (intptr_t*) &base()[which];
@@ -234,7 +250,8 @@ class ConstantPool : public Metadata {
   static int resolved_references_offset_in_bytes() { return offset_of(ConstantPool, _resolved_references); }
 
   // Storing constants
-
+  
+  // 向常量池指定位置写入数据的方法，解析class文件时调用该类方法，如klass_at_put，unresolved_klass_at_put，method_handle_index_at_put，invoke_dynamic_at_put，int_at_put，field_at_put，name_and_type_at_put等方法
   void klass_at_put(int which, Klass* k) {
     assert(k != NULL, "resolved class shouldn't be null");
     assert(is_within_bounds(which), "index out of bounds");
@@ -346,7 +363,7 @@ class ConstantPool : public Metadata {
   constantTag tag_at(int which) const { return (constantTag)tags()->at_acquire(which); }
 
   // Fetching constants
-
+  // 从常量池指定位置读取数据的方法，如klass_at，klass_name_at，resolved_klass_at，long_at，symbol_at，name_and_type_at，method_handle_name_ref_at等方法
   Klass* klass_at(int which, TRAPS) {
     constantPoolHandle h_this(THREAD, this);
     return klass_at_impl(h_this, which, CHECK_NULL);
@@ -703,6 +720,7 @@ class ConstantPool : public Metadata {
  public:
 
   // Resolve late bound constants.
+  // 解析常量池符号引用的方法，如resolve_constant_at，resolve_bootstrap_specifier_at，resolve_constant_at_impl，resolve_string_constants_impl，resolve_bootstrap_specifier_at_impl等方法
   oop resolve_constant_at(int index, TRAPS) {
     constantPoolHandle h_this(THREAD, this);
     return resolve_constant_at_impl(h_this, index, _no_index_sentinel, THREAD);
@@ -736,6 +754,7 @@ class ConstantPool : public Metadata {
   }
 
   // Sizing (in words)
+  // 由方法实现可知，就是ConstantPool实例本身占用的内存大小加上length个指针长度。
   static int header_size()             { return sizeof(ConstantPool)/HeapWordSize; }
   static int size(int length)          { return align_object_size(header_size() + length); }
   int size() const                     { return size(length()); }
@@ -873,6 +892,7 @@ class ConstantPool : public Metadata {
 
  public:
   // Verify
+  // 从class文件读取常量池的字节流时校验常量池是否符合规范的方法，如verify_on
   void verify_on(outputStream* st);
 
   // Printing

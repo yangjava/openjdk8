@@ -31,9 +31,11 @@
 // This class provides the interface between a barrier implementation and
 // the rest of the system.
 
+// BarrierSet表示一个数据读写动作的栅栏，跟高速缓存中用来在不同CPU之间同步数据的的Barrier（内存屏障）完全不同，BarrierSet的功能类似于一个拦截器，在读写动作实际作用于内存前执行某些前置或者后置动作，其定义在hotspot src/share/vm/memory/barrierSet.hpp中。
 class BarrierSet: public CHeapObj<mtGC> {
   friend class VMStructs;
 public:
+  // BarrierSet定义了一个枚举Name来描述不同类型的子类
   enum Name {
     ModRef,
     CardTableModRef,
@@ -60,9 +62,14 @@ public:
   virtual bool is_a(BarrierSet::Name bsn) = 0;
 
   // These operations indicate what kind of barriers the BarrierSet has.
+  // 方法名中的ref表示引用类型的数据 prim表示基本类型的数据
+  // has_read_ref_barrier表示该BarrierSet是在读取引用类型数据时执行的
   virtual bool has_read_ref_barrier() = 0;
+  // has_read_prim_barrier表示该BarrierSet是在读取基本类型数据时执行的
   virtual bool has_read_prim_barrier() = 0;
+  // has_write_ref_barrier表示该BarrierSet是在写入引用类型数据时执行的
   virtual bool has_write_ref_barrier() = 0;
+  // has_write_ref_pre_barrier表示该BarrierSet是在写入引用类型数据前预先执行的
   virtual bool has_write_ref_pre_barrier() = 0;
   virtual bool has_write_prim_barrier() = 0;
 

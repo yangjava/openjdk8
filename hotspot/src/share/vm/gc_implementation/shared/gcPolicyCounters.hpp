@@ -30,6 +30,7 @@
 // GCPolicyCounters is a holder class for performance counters
 // that track a generation
 
+// GCPolicyCounters的定义在hotspot/src/share/vm/gc_implementation/shared/gCPolicyCounters.hpp中，用来统计GC过程中各种性能数据。
 class GCPolicyCounters: public CHeapObj<mtGC> {
   friend class VMStructs;
 
@@ -47,7 +48,8 @@ class GCPolicyCounters: public CHeapObj<mtGC> {
     const char* _name_space;
 
  public:
-
+  
+  // GCPolicyCounters也定义了一个枚举Name来描述子类
   enum Name {
     NONE,
     GCPolicyCountersKind,

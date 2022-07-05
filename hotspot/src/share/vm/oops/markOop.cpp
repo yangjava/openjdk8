@@ -26,6 +26,7 @@
 #include "oops/markOop.hpp"
 #include "runtime/thread.inline.hpp"
 
+// 打印输出语句
 void markOopDesc::print_on(outputStream* st) const {
   if (is_locked()) {
     st->print("locked(0x%lx)->", value());

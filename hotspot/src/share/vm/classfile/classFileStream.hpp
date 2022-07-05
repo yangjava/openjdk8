@@ -48,10 +48,12 @@
 // The caller is responsible for deallocating the buffer and for using
 // ResourceMarks appropriately when constructing streams.
 
+// 如果要读取Class文件的内容，首先需要获取文件对应的字节流，ClassFileStream 内部维护了一个buffer，该buffer指向Class文件所对应的字节流。
 class ClassFileStream: public ResourceObj {
  private:
   u1*   _buffer_start; // Buffer bottom
   u1*   _buffer_end;   // Buffer top (one past last element)
+  // _current指针指向Java字节流中当前已经读取到的位置当class文件刚被加载时,_current指向当前字节流的第一个字节所在的位置,后续随着解析操作的不断进行,_current指针不断的往后移动,直至当前字节流最后
   u1*   _current;      // Current buffer position
   char* _source;       // Source of stream (directory name, ZIP/JAR archive name)
   bool  _need_verify;  // True if verification is on for the class file

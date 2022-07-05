@@ -262,6 +262,8 @@ class _ValueObj {
 
 class ClassLoaderData;
 
+
+
 class MetaspaceObj {
  public:
   bool is_metaspace_object() const;  // more specific test but slower

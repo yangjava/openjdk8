@@ -42,10 +42,14 @@
 #include "runtime/signature.hpp"
 #include "runtime/vframe.hpp"
 
+// 常量池分配
 ConstantPool* ConstantPool::allocate(ClassLoaderData* loader_data, int length, TRAPS) {
+
   // Tags are RW but comment below applies to tags also.
+  // 参数length就表示常量池项的数量
   Array<u1>* tags = MetadataFactory::new_writeable_array<u1>(loader_data, length, 0, CHECK_NULL);
 
+  // 调用ConstantPool::size()计算所需要分配内存的大小，由方法实现可知，就是ConstantPool实例本身占用的内存大小加上length个指针长度。
   int size = ConstantPool::size(length);
 
   // CDS considerations:
@@ -54,6 +58,7 @@ ConstantPool* ConstantPool::allocate(ClassLoaderData* loader_data, int length, T
   // the resolved_references array, which is recreated at startup time.
   // But that could be moved to InstanceKlass (although a pain to access from
   // assembly code).  Maybe it could be moved to the cpCache which is RW.
+  // 创建ConstantPool对象返回
   return new (loader_data, size, false, MetaspaceObj::ConstantPoolType, THREAD) ConstantPool(tags);
 }
 

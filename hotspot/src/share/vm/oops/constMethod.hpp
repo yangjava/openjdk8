@@ -174,6 +174,7 @@ class InlineTableSizes : StackObj {
 #undef INLINE_TABLE_PARAM
 #undef INLINE_TABLE_DECLARE
 
+// ConstMethod指针，该类定义在constMethod.hpp文件中，用于表示方法的不可变的部分，如方法ID，方法的字节码大小，方法名在常量池中的索引等
 
 class ConstMethod : public MetaspaceObj {
   friend class VMStructs;
@@ -208,14 +209,17 @@ private:
 
   // Raw stackmap data for the method
   Array<u1>*        _stackmap_data;
-
+  // 方法的字节码大小，_constMethod_size的大小以字宽为单位
   int               _constMethod_size;
   u2                _flags;
 
   // Size of Java bytecodes allocated immediately after Method*.
+  // _code_size的大小以字节为单位
   u2                _code_size;
+  // 方法名在常量池中的索引
   u2                _name_index;                 // Method name (index in constant pool)
   u2                _signature_index;            // Method signature (index in constant pool)
+  // 方法的id（_method_idnum）
   u2                _method_idnum;               // unique identification number for the method within the class
                                                  // initially corresponds to the index into the methods array.
                                                  // but this may change with redefinition

@@ -788,6 +788,7 @@ TosState as_TosState(BasicType type);
 //
 // Given a state, the xxx_trans state can always be found by adding 1.
 //
+// 线程的状态有一个对应的枚举JavaThreadState，其定义如下，其中奇数的都是中间状态，短时间内存在，偶数的是
 enum JavaThreadState {
   _thread_uninitialized     =  0, // should never happen (missing initialization)
   _thread_new               =  2, // just starting up, i.e., in process of being initialized
@@ -1002,6 +1003,7 @@ const intptr_t OneBit     =  1; // only right_most bit set in a word
 // bit-operations using a mask m
 inline void   set_bits    (intptr_t& x, intptr_t m) { x |= m; }
 inline void clear_bits    (intptr_t& x, intptr_t m) { x &= ~m; }
+// mask_bits是个内联函数实际上就是将两个参数做"按位与"运算。
 inline intptr_t mask_bits      (intptr_t  x, intptr_t m) { return x & m; }
 inline jlong    mask_long_bits (jlong     x, jlong    m) { return x & m; }
 inline bool mask_bits_are_true (intptr_t flags, intptr_t mask) { return (flags & mask) == mask; }

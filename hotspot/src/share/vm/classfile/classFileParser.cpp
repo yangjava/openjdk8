@@ -90,6 +90,7 @@
 // Extension method support.
 #define JAVA_8_VERSION                    52
 
+// 循环处理length个常量池项，不过第一个常量池项不需要处理，所以循环下标index的值初始化为1。
 void ClassFileParser::parse_constant_pool_entries(int length, TRAPS) {
   // Use a local copy of ClassFileStream. It helps the C++ compiler to optimize
   // this function (_current can be allocated in a register, with scalar
@@ -119,6 +120,8 @@ void ClassFileParser::parse_constant_pool_entries(int length, TRAPS) {
     // so we don't need bounds-check for reading tag.
     u1 tag = cfs->get_u1_fast();
     switch (tag) {
+
+      // JVM_CONSTANT_Class解析
       case JVM_CONSTANT_Class :
         {
           cfs->guarantee_more(3, CHECK);  // name_index, tag/access_flags
@@ -318,26 +321,32 @@ inline Symbol* check_symbol_at(constantPoolHandle cp, int index) {
     return NULL;
 }
 
+// 解析常量池
 constantPoolHandle ClassFileParser::parse_constant_pool(TRAPS) {
   ClassFileStream* cfs = stream();
   constantPoolHandle nullHandle;
 
   cfs->guarantee_more(3, CHECK_(nullHandle)); // length, first cp tag
+  // 获取2个字节，常量池的size
   u2 length = cfs->get_u2_fast();
   guarantee_property(
     length >= 1, "Illegal constant pool size %u in class file %s",
     length, CHECK_(nullHandle));
+
+  // 调用ConstantPool::allocate()创建ConstantPool对象
   ConstantPool* constant_pool = ConstantPool::allocate(_loader_data, length,
                                                         CHECK_(nullHandle));
   _cp = constant_pool; // save in case of errors
   constantPoolHandle cp (THREAD, constant_pool);
 
   // parsing constant pool entries
+  // 调用parse_constant_pool_entries()解析常量池中的项并将这些项保存到ConstantPool对象中
   parse_constant_pool_entries(length, CHECK_(nullHandle));
 
   int index = 1;  // declared outside of loops for portability
 
   // first verification pass - validate cross references and fixup class and string constants
+  // 解析常量池的每个项
   for (index = 1; index < length; index++) {          // Index 0 is unused
     jbyte tag = cp->tag_at(index).value();
     switch (tag) {
@@ -1081,12 +1090,15 @@ class FieldAllocationCount: public ResourceObj {
   }
 };
 
+// 字段解析
 Array<u2>* ClassFileParser::parse_fields(Symbol* class_name,
                                          bool is_interface,
                                          FieldAllocationCount *fac,
                                          u2* java_fields_count_ptr, TRAPS) {
+  // 获取文件流                                        
   ClassFileStream* cfs = stream();
   cfs->guarantee_more(2, CHECK_NULL);  // length
+  // 获取字段长度
   u2 length = cfs->get_u2_fast();
   *java_fields_count_ptr = length;
 
@@ -1121,14 +1133,18 @@ Array<u2>* ClassFileParser::parse_fields(Symbol* class_name,
   // The generic signature slots start after all other fields' data.
   int generic_signature_slot = total_fields * FieldInfo::field_slots;
   int num_generic_signature = 0;
+
+  // 遍历获取Field项信息
   for (int n = 0; n < length; n++) {
     cfs->guarantee_more(8, CHECK_NULL);  // access_flags, name_index, descriptor_index, attributes_count
 
+    // 获取变量访问标识 
     AccessFlags access_flags;
     jint flags = cfs->get_u2_fast() & JVM_RECOGNIZED_FIELD_MODIFIERS;
     verify_legal_field_modifiers(flags, is_interface, CHECK_NULL);
     access_flags.set_flags(flags);
 
+    // 获取变量名称索引
     u2 name_index = cfs->get_u2_fast();
     int cp_size = _cp->length();
     check_property(valid_symbol_at(name_index),
@@ -1138,6 +1154,7 @@ Array<u2>* ClassFileParser::parse_fields(Symbol* class_name,
     Symbol*  name = _cp->symbol_at(name_index);
     verify_legal_field_name(name, CHECK_NULL);
 
+    // 获取描述符索引
     u2 signature_index = cfs->get_u2_fast();
     check_property(valid_symbol_at(signature_index),
       "Invalid constant pool index %u for field signature in class file %s",
@@ -1150,7 +1167,8 @@ Array<u2>* ClassFileParser::parse_fields(Symbol* class_name,
     u2 generic_signature_index = 0;
     bool is_static = access_flags.is_static();
     FieldAnnotationCollector parsed_annotations(_loader_data);
-
+    
+    // 获取变量属性
     u2 attributes_count = cfs->get_u2_fast();
     if (attributes_count > 0) {
       parse_field_attributes(attributes_count, is_static, signature_index,
@@ -3649,7 +3667,7 @@ void ClassFileParser::layout_fields(Handle class_loader,
   info->has_nonstatic_fields = has_nonstatic_fields;
 }
 
-
+// 类文件解析
 instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
                                                     ClassLoaderData* loader_data,
                                                     Handle protection_domain,
@@ -3731,16 +3749,21 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
 
   cfs->guarantee_more(8, CHECK_(nullHandle));  // magic, major, minor
   // Magic value
+  // 读取魔数主要是为了验证值是否为0xCAFEBABE。
+  // 魔数
   u4 magic = cfs->get_u4_fast();
   guarantee_property(magic == JAVA_CLASSFILE_MAGIC,
                      "Incompatible magic value %u in class file %s",
                      magic, CHECK_(nullHandle));
 
   // Version numbers
+  // 主版本号
   u2 minor_version = cfs->get_u2_fast();
+  // 次版本号
   u2 major_version = cfs->get_u2_fast();
 
   // Check version numbers - we check this even with verifier off
+  // 校验版本号是否是支持
   if (!is_supported_version(major_version, minor_version)) {
     if (name == NULL) {
       Exceptions::fthrow(
@@ -3761,7 +3784,8 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
     }
     return nullHandle;
   }
-
+ 
+ // 读取到Class文件的主、次版本号并保存到ClassFileParser实例的_major_version和_minor_version中。
   _major_version = major_version;
   _minor_version = minor_version;
 
@@ -3778,6 +3802,7 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
   cfs->guarantee_more(8, CHECK_(nullHandle));  // flags, this_class, super_class, infs_len
 
   // Access flags
+  // 解析访问标识 读取并验证访问标识，这个访问标识在进行字段及方法解析过程中会使用，主要用来判断这些字段或方法是定义在接口中还是类中。
   AccessFlags access_flags;
   jint flags = cfs->get_u2_fast() & JVM_RECOGNIZED_CLASS_MODIFIERS;
 
@@ -3789,6 +3814,7 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
   access_flags.set_flags(flags);
 
   // This class and superclass
+  // 解析当前类索引 类索引（this_class）是一个u2类型的数据，类索引用于确定这个类的全限定名。
   u2 this_class_index = cfs->get_u2_fast();
   check_property(
     valid_cp_range(this_class_index, cp_size) &&
@@ -3807,6 +3833,7 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
   parsed_name->increment_refcount();
 
   // Update _class_name which could be null previously to be class_name
+  // 将读取到的当前类的名称保存到ClassFileParser实例的_class_name属性中。
   _class_name = class_name;
 
   // Don't need to check whether this class name is legal or not.
@@ -3841,12 +3868,16 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
       if (cfs->source() != NULL) tty->print(" from %s", cfs->source());
       tty->print_cr("]");
     }
-
+    
+    // 解析父类索引 父类索引（super_class）是一个u2类型的数据，父类索引用于确定这个类的父类全限定名。
+    // 由于java语言不允许多重继承，所以父类索引只有一个。父类索指向常量池中类型为CONSTANT_Class_info的类描述符，再通过类描述符中的索引值找到常量池中类型为CONSTANT_Utf8_info的字符串。
     u2 super_class_index = cfs->get_u2_fast();
     instanceKlassHandle super_klass = parse_super_class(super_class_index,
                                                         CHECK_NULL);
 
     // Interfaces
+    // 解析实现接口 接口表，interfaces[]数组中的每个成员的值必须是一个对constant_pool表中项目的一个有效索引值， 它的长度为 interfaces_count。
+    // 每个成员interfaces[i] 必须为CONSTANT_Class_info类型常量，其中 0 ≤ i <interfaces_count。在interfaces[]数组中，成员所表示的接口顺序和对应的源代码中给定的接口顺序（从左至右）一样，即interfaces[0]对应的是源代码中最左边的接口。
     u2 itfs_len = cfs->get_u2_fast();
     Array<Klass*>* local_interfaces =
       parse_interfaces(itfs_len, protection_domain, _class_name,
@@ -3870,6 +3901,7 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
                                             CHECK_(nullHandle));
 
     // Additional attributes
+    // 解析类属性 调用parse_classfile_attributes()方法解析类属性
     ClassAnnotationCollector parsed_annotations;
     parse_classfile_attributes(&parsed_annotations, CHECK_(nullHandle));
 

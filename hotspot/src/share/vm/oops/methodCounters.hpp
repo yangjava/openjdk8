@@ -28,6 +28,15 @@
 #include "oops/metadata.hpp"
 #include "interpreter/invocationCounter.hpp"
 
+// MethodCounters指针，该类在methodCounters.hpp中定义，用于大量编译优化相关的计数，
+
+// 解释器调用次数
+// 解释执行时由于异常而终止的次数
+// 方法调用次数（method里面有多少方法调用）
+// 回边个数
+// 该方法曾经过的分层编译的最高层级
+// 热点方法计数
+// 主要用于基于调用频率的热点方法的跟踪统计
 class MethodCounters: public MetaspaceObj {
  friend class VMStructs;
  private:

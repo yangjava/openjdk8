@@ -35,17 +35,25 @@
 typedef juint narrowOop; // Offset instead of address for an oop within a java object
 
 // If compressed klass pointers then use narrowKlass.
+// narrow, 小的意思. 因为64位环境下, 寄存器是64位的, 对应指针也就成64位了, 也就是8字节narrowKlass只使用4个字节, 预分配给_metadata的8字节中的另外4字节就可以用做他用了
 typedef juint  narrowKlass;
 
 typedef void* OopOrNarrowOopStar;
+// markOop其实就是markOopDesc 指针，就是说markOopDesc里的value()函数最终返回的就是markOop，也就是64bits的Mark Word(无符号整形)。
+// 指针类型, 8字节
 typedef class   markOopDesc*                markOop;
 
 #ifndef CHECK_UNHANDLED_OOPS
 
+// 定义了oops共同基类 
 typedef class oopDesc*                            oop;
+// 表示一个Java类型实例
 typedef class   instanceOopDesc*            instanceOop;
+// 表示一个数组实例
 typedef class   arrayOopDesc*                    arrayOop;
+// 表示一个对象数组实例
 typedef class     objArrayOopDesc*            objArrayOop;
+// 表示一个容纳基本类型的数组
 typedef class     typeArrayOopDesc*            typeArrayOop;
 
 #else
@@ -191,19 +199,29 @@ template <class T> inline T cast_from_oop(oop o) {
 
 // The metadata hierarchy is separate from the oop hierarchy
 
+// 元数据的体系
+// MetaspaceObj 分类下主要是用于描述 oop 相关的信息，Metadata 主要用于描述 Klass 相关信息
+
 //      class MetaspaceObj
+// 表示一个 java 方法中不变的信息包括方法名、方法的访问修饰符、字节码、行号表、局部变量表等等
 class   ConstMethod;
+// 主要用于存储某些字节码指令所需的解析（resolve）好的常量项，例如给[get|put]static、[get|put]field、invoke[static|special|virtual|interface|dynamic]等指令对应的常量池项用
 class   ConstantPoolCache;
+// 记录了 Java 方法执行时候的性能相关的 profile 信息，包括条件跳转是否总是走一个分支某处判断从不为 null 等信息
 class   MethodData;
 //      class Metadata
+// class文件中的方法
 class   Method;
+// class 文件中的常量池
 class   ConstantPool;
 //      class CHeapObj
+// 
 class   CompiledICHolder;
 
 
 // The klass hierarchy is separate from the oop hierarchy.
 
+// klass的体系 klass代表元数据，继承自Metadata类，因此像Method、ConstantPool都会以成员变量（或指针）的形式存在于klass体系中。
 class Klass;
 class   InstanceKlass;
 class     InstanceMirrorKlass;
@@ -213,4 +231,7 @@ class   ArrayKlass;
 class     ObjArrayKlass;
 class     TypeArrayKlass;
 
+// class 向 JVM 提供了 2 个功能
+// 实现语言层面的Java类（在Klass基类中已经实现）
+// 实现Java对象的分发功能（由Klass的子类提供虚函数实现）
 #endif // SHARE_VM_OOPS_OOPSHIERARCHY_HPP

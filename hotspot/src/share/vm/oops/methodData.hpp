@@ -1780,6 +1780,9 @@ public:
 // adjusted in the event of a change in control flow.
 //
 
+// MethodData结构基础是ProfileData，记录函数运行状态下的数据
+// MethodData里面分为3个部分，一个是函数类型等运行相关统计数据，一个是参数类型运行相关统计数据，还有一个是extra扩展区保存着deoptimization的相关信息
+// MethodData指针，该类在methodData.hpp中定义，用于表示一个方法在执行期间收集的相关信息，如方法的调用次数，在C1编译期间代码循环和阻塞的次数，Profile收集的方法性能相关的数据等
 class MethodData : public Metadata {
   friend class VMStructs;
 private:

@@ -92,6 +92,9 @@ class klassVtable;
 class ParCompactionManager;
 class KlassSizeStats;
 
+// 在JVM中，对象在内存中的基本存在形式就是oop。那么，对象所属的类，在JVM中也是一种对象，因此它们实际上也会被组织成一种oop，即klassOop。
+// 同样的，对于klassOop，也有对应的一个klass来描述，它就是klassKlass，也是klass的一个子类。klassKlass作为oop的klass链的端点。
+
 class Klass : public Metadata {
   friend class VMStructs;
  protected:

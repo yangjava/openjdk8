@@ -79,6 +79,9 @@ class VirtualSpaceList;
 // allocate() method returns a block for use as a
 // quantum of metadata.
 
+// Metaspace的定义位于hotspot src/share/vm/memory/metaspace.hpp中，Metaspace表示用来给Klass等元数据分配内存的一个内存空间，通常称为元空间，
+// 每个ClassLoader实例包括启动类加载器都会创建一个对应的Metaspace实例，每个Metaspace实例都有一个SpaceManager实例，通过SpaceManager完成内存分配与管理。
+
 class Metaspace : public CHeapObj<mtClass> {
   friend class VMStructs;
   friend class SpaceManager;
@@ -115,6 +118,7 @@ class Metaspace : public CHeapObj<mtClass> {
   static size_t align_word_size_up(size_t);
 
   // Aligned size of the metaspace.
+  // compressed class对应的Metaspace大小
   static size_t _compressed_class_space_size;
 
   static size_t compressed_class_space_size() {
@@ -123,16 +127,22 @@ class Metaspace : public CHeapObj<mtClass> {
   static void set_compressed_class_space_size(size_t size) {
     _compressed_class_space_size = size;
   }
-
+  
+  // 第一个NonClassType类型的MetaChunk的大小
   static size_t _first_chunk_word_size;
+  // 第一个ClassType类型的MetaChunk的大小
   static size_t _first_class_chunk_word_size;
-
+  
+  // commit内存的粒度
   static size_t _commit_alignment;
+  // reserve内存的粒度
   static size_t _reserve_alignment;
 
+  // NonClassType类型的元数据对应的SpaceManager 
   SpaceManager* _vsm;
   SpaceManager* vsm() const { return _vsm; }
-
+  
+  // ClassType类型的元数据对应的SpaceManager
   SpaceManager* _class_vsm;
   SpaceManager* class_vsm() const { return _class_vsm; }
 
@@ -142,11 +152,17 @@ class Metaspace : public CHeapObj<mtClass> {
   MetaWord* allocate(size_t word_size, MetadataType mdtype);
 
   // Virtual Space lists for both classes and other metadata
+  // NonClassType类型的元数据对应的VirtualSpaceList
   static VirtualSpaceList* _space_list;
+  // ClassType类型的元数据对应的VirtualSpaceList
   static VirtualSpaceList* _class_space_list;
-
+  
+  // NonClassType类型的元数据对应的ChunkManager
   static ChunkManager* _chunk_manager_metadata;
+  // ClassType类型的元数据对应的ChunkManager
   static ChunkManager* _chunk_manager_class;
+  
+  // 注意上述 ClassType类型的ChunkManager和VirtualSpaceList具体是指开启UseCompressedClassPointers下用来存储Class等元数据的元空间。
 
  public:
   static VirtualSpaceList* space_list()       { return _space_list; }
@@ -178,7 +194,8 @@ class Metaspace : public CHeapObj<mtClass> {
 
   static void initialize_class_space(ReservedSpace rs);
 #endif
-
+  
+  // 一个简单的记录内存分配结果的数据结构。
   class AllocRecord : public CHeapObj<mtClass> {
   public:
     AllocRecord(address ptr, MetaspaceObj::Type type, int byte_size)
@@ -188,8 +205,10 @@ class Metaspace : public CHeapObj<mtClass> {
     MetaspaceObj::Type _type;
     int _byte_size;
   };
-
+  
+  // AllocRecord链表的头部元素
   AllocRecord * _alloc_record_head;
+  // AllocRecord链表的尾部元素
   AllocRecord * _alloc_record_tail;
 
   size_t class_chunk_size(size_t word_size);
@@ -198,8 +217,9 @@ class Metaspace : public CHeapObj<mtClass> {
 
   Metaspace(Mutex* lock, MetaspaceType type);
   ~Metaspace();
-
+  // ergo_initialize用于初始化Metaspace的各种参数，如MetaspaceSize，MaxMetaspaceSize，MinMetaspaceExpansion等
   static void ergo_initialize();
+  // global_initialize方法用于初始化_first_chunk_word_size，_space_list，_chunk_manager_metadata等静态属性
   static void global_initialize();
 
   static size_t first_chunk_word_size() { return _first_chunk_word_size; }

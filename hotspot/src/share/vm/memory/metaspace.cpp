@@ -2842,6 +2842,7 @@ ChunkManager* Metaspace::_chunk_manager_class = NULL;
 
 #define VIRTUALSPACEMULTIPLIER 2
 
+// UseSharedSpaces表示使用基于文件的共享Metaspace，即不同的JVM进程通过将Metaspace映射到同一个文件实现Metaspace共享，默认为false。
 #ifdef _LP64
 static const uint64_t UnscaledClassSpaceMax = (uint64_t(max_juint) + 1);
 
@@ -2976,6 +2977,7 @@ void Metaspace::initialize_class_space(ReservedSpace rs) {
 #endif
 
 void Metaspace::ergo_initialize() {
+  // DumpSharedSpaces表示将共享的Metaspace空间dump到一个文件中，给其他JVM使用，默认为false
   if (DumpSharedSpaces) {
     // Using large pages when dumping the shared archive is currently not implemented.
     FLAG_SET_ERGO(bool, UseLargePagesInMetaspace, false);
@@ -3043,6 +3045,7 @@ void Metaspace::global_initialize() {
       vm_exit_during_initialization("Unable to dump shared archive.", NULL);
     }
 
+// UseCompressedOops和UseCompressedClassPointers表示使用压缩的oop指针和Klass指针，64位下默认为true
 #ifdef _LP64
     if (cds_total + compressed_class_space_size() > UnscaledClassSpaceMax) {
       vm_exit_during_initialization("Unable to dump shared archive.",

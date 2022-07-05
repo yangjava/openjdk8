@@ -96,20 +96,31 @@ class ConstMethod;
 class InlineTableSizes;
 class KlassSizeStats;
 
+// Method用于表示一个Java方法，因为一个应用有成千上万个方法，因此保证Method类在内存中短小非常有必要。为了本地GC方便，Method把所有的指针变量和方法大小放在Method内存布局的前面。
 class Method : public Metadata {
  friend class VMStructs;
  private:
+  // 方法本身的不可变数据，如字节码用ConstMethod表示
   ConstMethod*      _constMethod;                // Method read-only data.
+  // 可变数据如Profile统计的性能数据等用MethodData表示，都通过指针访问。 MethodData结构基础是ProfileData，记录函数运行状态下的数据
   MethodData*       _method_data;
+  // 主要用于基于调用频率的热点方法的跟踪统计
   MethodCounters*   _method_counters;
+  // AccessFlags类，表示方法的访问控制标识
   AccessFlags       _access_flags;               // Access flags
+  // 该方法在vtable表中的索引
   int               _vtable_index;               // vtable index of this method (see VtableIndexFlag)
                                                  // note: can have vtables with >2**16 elements (because of inheritance)
 #ifdef CC_INTERP
   int               _result_index;               // C++ interpreter needs for converting results to/from stack
 #endif
+  // 这个Method对象的大小，以字宽为单位
   u2                _method_size;                // size of this object
+  // Method中的一个重要字段为_intrinsic_id，为了追求极致的性能，将这些方法叫固有方法（Intrinsic Method）。所有的固有方法都能在classfile/vmSymbols.hpp中找到，一个绝佳的例子是java.lang.Math。对于Math.sqrt()，用Java或者JNI均无法达到极致性能，这时可以将其置为固有方法，当虚拟机遇到它时只需要一条CPU指令fsqrt，用硬件级实现碾压软件级算法。
+  // 固有方法（intrinsic method）在虚拟机中表示一些众所周知的方法，针对它们可以做特别处理，生成独特的代码例程。虚拟机发现一个方法是固有方法就不会走逐行解释字节码这条路径而是跳到独特的代码例程上面，
+  // 所有的固有方法都定义在hotspot\share\classfile\vmSymbols.hpp文件中
   u1                _intrinsic_id;               // vmSymbols::intrinsic_id (0 == _none)
+  //  Flags，在定义时指定各个变量占用的位
   u1                _jfr_towrite      : 1,       // Flags
                     _caller_sensitive : 1,
                     _force_inline     : 1,
@@ -118,21 +129,35 @@ class Method : public Metadata {
                                       : 3;
 
 #ifndef PRODUCT
+  // 编译后的方法叫nmethod，这个就是用来计数编译后的nmethod调用了多少次，如果该方法是解释执行就为0
   int               _compiled_invocation_count;  // Number of nmethod invocations so far (for perf. debugging)
 #endif
   // Entry point for calling both from and to the interpreter.
+  // 解释器的入口地址
   address _i2i_entry;           // All-args-on-stack calling convention
   // Adapter blob (i2c/c2i) for this Method*. Set once when method is linked.
+  // _adapter 指向该Java方法的签名（signature）所对应的 i2c2i adapter stub。其实是一个 i2c stub和一个 c2i stub 粘在一起这样的对象，可以看到用的时候都是从 _adapter 取 get_i2c_entry() 或get_c2i_entry()。
+  // 这些adapter stub用于在HotSpot VM里的解释模式与编译模式的代码之间适配其calling convention。HotSpot VM里的解释模式calling convention用栈来传递参数，
+  // 而编译模式的calling convention更多采用寄存器来传递参数，两者不兼容，因而从解释模式的代码调用已经被编译的方法，或者反之，都需要在调用时进行适配。
+  // 此方法在解释器和编译器执行的适配器
   AdapterHandlerEntry* _adapter;
   // Entry point for calling from compiled code, to compiled code if it exists
   // or else the interpreter.
+  // _from_compiled_entry 初始值指向c2i adapter stub。原因上面已经说了，因为一开始该方法尚未被JIT编译，需要在解释模式执行，那么从已经JIT编译好的Java方法调用过来的话就需要进行calling convention的转换，
+  //   把参数挪到正确的位置上。当该方法被JIT编译并“安装”完之后，_from_compiled_entry 就会指向编译出来的机器码的入口，
+  // 具体说时指向verified entry point。如果要抛弃之前编译好的机器码，那么 _from_compiled_entry会恢复为指向 c2i stub。
+  // 执行编译后的代码的入口地址
   volatile address _from_compiled_entry;        // Cache of: _code ? _code->entry_point() : _adapter->c2i_entry()
   // The entry point for calling both from and to compiled code is
   // "_code->entry_point()".  Because of tiered compilation and de-opt, this
   // field can come and go.  It can transition from NULL to not-null at any
   // time (whenever a compile completes).  It can transition from not-null to
   // NULL only at safepoints (because of a de-opt).
+
+  // nmethod全名native method，指向的是Java method编译的一个版本。当一个方法被JIT编译后会生成一个nmethod，指向的是编译的代码_code的类型为nmethod
+  // nmethod类指针，表示该方法编译后的本地代码
   nmethod* volatile _code;                       // Points to the corresponding piece of native code
+  // 如果有_code，则通过i2c_entry转向编译方法，否则通过_i2i_entry转向解释方法
   volatile address           _from_interpreted_entry; // Cache of _code ? _adapter->i2c_entry() : _i2i_entry
 
   // Constructor

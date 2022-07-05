@@ -189,18 +189,23 @@ unsigned int SymbolTable::hash_symbol(const char* s, int len) {
 // safepoints).
 
 Symbol* SymbolTable::lookup(const char* name, int len, TRAPS) {
+  // 计算hash值
   unsigned int hashValue = hash_symbol(name, len);
+  // 计算hash槽的位置
   int index = the_table()->hash_to_index(hashValue);
-
+  // 去指定位置的hash槽中查找是否存在目标Symbo
   Symbol* s = the_table()->lookup(index, name, len, hashValue);
 
   // Found
+  // 如果存在则返回
   if (s != NULL) return s;
 
   // Grab SymbolTable_lock first.
+  // 如果不存在则需要获取锁SymbolTable_lock，并创建一个新的
   MutexLocker ml(SymbolTable_lock, THREAD);
 
   // Otherwise, add to symbol to table
+  // 会调用allocate_symbol在内存中创建一个新的Symbol，然后以此构建一个新的HashtableEntry实例，将其添加到HashTable中
   return the_table()->basic_add(index, (u1*)name, len, hashValue, true, CHECK_NULL);
 }
 

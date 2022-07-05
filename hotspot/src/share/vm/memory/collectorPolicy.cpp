@@ -47,11 +47,15 @@
 
 // CollectorPolicy methods.
 
+// 
 CollectorPolicy::CollectorPolicy() :
     _space_alignment(0),
     _heap_alignment(0),
+    // InitialHeapSize表示初始堆内存，单位字节
     _initial_heap_byte_size(InitialHeapSize),
+    // MaxHeapSize表示最大堆内存，单位字节
     _max_heap_byte_size(MaxHeapSize),
+    // 最小堆内存
     _min_heap_byte_size(Arguments::min_heap_size()),
     _max_heap_size_cmdline(false),
     _size_policy(NULL),
@@ -78,7 +82,9 @@ void CollectorPolicy::assert_size_info() {
 }
 #endif // ASSERT
 
+// 
 void CollectorPolicy::initialize_flags() {
+  // //校验_space_alignment和_heap_alignment的合法性，_heap_alignment必须大于_space_alignment，且是_space_alignment的整数倍
   assert(_space_alignment != 0, "Space alignment not set up properly");
   assert(_heap_alignment != 0, "Heap alignment not set up properly");
   assert(_heap_alignment >= _space_alignment,
@@ -87,8 +93,10 @@ void CollectorPolicy::initialize_flags() {
   assert(_heap_alignment % _space_alignment == 0,
          err_msg("heap_alignment: " SIZE_FORMAT " not aligned by space_alignment: " SIZE_FORMAT,
                  _heap_alignment, _space_alignment));
-
+  
+  // 如果MaxHeapSize是通过命令行参数配置的
   if (FLAG_IS_CMDLINE(MaxHeapSize)) {
+    // 校验MaxHeapSize和InitialHeapSize的合法性
     if (FLAG_IS_CMDLINE(InitialHeapSize) && InitialHeapSize > MaxHeapSize) {
       vm_exit_during_initialization("Initial heap size set to a larger value than the maximum heap size");
     }
@@ -99,6 +107,7 @@ void CollectorPolicy::initialize_flags() {
   }
 
   // Check heap parameter properties
+  // M是一个常量，表示1M
   if (InitialHeapSize < M) {
     vm_exit_during_initialization("Too small initial heap");
   }
@@ -107,18 +116,20 @@ void CollectorPolicy::initialize_flags() {
   }
 
   // User inputs from -Xmx and -Xms must be aligned
+  // 将内存对齐
   _min_heap_byte_size = align_size_up(_min_heap_byte_size, _heap_alignment);
   uintx aligned_initial_heap_size = align_size_up(InitialHeapSize, _heap_alignment);
   uintx aligned_max_heap_size = align_size_up(MaxHeapSize, _heap_alignment);
 
   // Write back to flags if the values changed
+  // 如果原来的设置值没有对齐，则修改原来设置的值
   if (aligned_initial_heap_size != InitialHeapSize) {
     FLAG_SET_ERGO(uintx, InitialHeapSize, aligned_initial_heap_size);
   }
   if (aligned_max_heap_size != MaxHeapSize) {
     FLAG_SET_ERGO(uintx, MaxHeapSize, aligned_max_heap_size);
   }
-
+  // 校验参数合法性，必要时修改
   if (FLAG_IS_CMDLINE(InitialHeapSize) && _min_heap_byte_size != 0 &&
       InitialHeapSize < _min_heap_byte_size) {
     vm_exit_during_initialization("Incompatible minimum and initial heap sizes specified");
@@ -134,13 +145,16 @@ void CollectorPolicy::initialize_flags() {
 
   _initial_heap_byte_size = InitialHeapSize;
   _max_heap_byte_size = MaxHeapSize;
-
+  
+  // MinHeapDeltaBytes参数表示堆内存空间因为GC而发生变动的最小值
   FLAG_SET_ERGO(uintx, MinHeapDeltaBytes, align_size_up(MinHeapDeltaBytes, _space_alignment));
 
   DEBUG_ONLY(CollectorPolicy::assert_flags();)
 }
 
+// 
 void CollectorPolicy::initialize_size_info() {
+  // 打印日志
   if (PrintGCDetails && Verbose) {
     gclog_or_tty->print_cr("Minimum heap " SIZE_FORMAT "  Initial heap "
       SIZE_FORMAT "  Maximum heap " SIZE_FORMAT,

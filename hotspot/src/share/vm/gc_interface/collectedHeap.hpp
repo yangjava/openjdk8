@@ -51,6 +51,7 @@ class ThreadClosure;
 class VirtualSpaceSummary;
 class nmethod;
 
+// GCMessage继承自FormatBuffer，实际就是一个指定长度的char数组，用来存储GC的日志信息
 class GCMessage : public FormatBuffer<1024> {
  public:
   bool is_before;
@@ -59,6 +60,7 @@ class GCMessage : public FormatBuffer<1024> {
   GCMessage() {}
 };
 
+// GCHeapLog继承自EventLogBase，用来打印GC日志的。
 class GCHeapLog : public EventLogBase<GCMessage> {
  private:
   void log_heap(bool before);
@@ -81,7 +83,9 @@ class GCHeapLog : public EventLogBase<GCMessage> {
 //     G1CollectedHeap
 //   ParallelScavengeHeap
 //
+// CollectedHeap是一个抽象类，表示一个Java堆，定义了各种垃圾回收算法必须实现的公共接口，这些接口就是上层类用来分配Java对象，分配TLAB，获取Java堆使用情况等的统一API。CollectedHeap定义位于hotspot/src/share/vm/gc_interface/collectedHeap.hpp中
 // 这个就是内存分配的操作类CollectedHeap，可以看到其有三个子类GenCollectedHeap、ParallelScavengeHeap、G1CollectedHeap，分别对应不同的垃圾回收器。
+// ParallelScavengeHeap就是开启UseParallelGC时的GC实现，G1CollectedHeap是开启UseG1GC时的GC实现，GenCollectedHeap是开启UseSerialGC或者UseConcMarkSweepGC的GC实现，分别对应两种不同的GenCollectorPolicy。
 class CollectedHeap : public CHeapObj<mtInternal> {
   friend class VMStructs;
   friend class IsGCActiveMark; // Block structured external access to _is_gc_active
@@ -91,29 +95,41 @@ class CollectedHeap : public CHeapObj<mtInternal> {
 #endif
 
   // Used for filler objects (static, but initialized in ctor).
+  // _filler_array_max_size：填充数组的最大值
   static size_t _filler_array_max_size;
-
+  // _gc_heap_log：用来打印GC日志
   GCHeapLog* _gc_heap_log;
 
   // Used in support of ReduceInitialCardMarks; only consulted if COMPILER2 is being used
+  // _defer_initial_card_mark：开启C2编译时使用，支持ReduceInitialCardMarks
   bool _defer_initial_card_mark;
 
  protected:
+  // _reserved：Java堆对应的一段连续内存空间
   MemRegion _reserved;
+  // _barrier_set：卡表（CardTable）的基类
   BarrierSet* _barrier_set;
+  // _is_gc_active：是否正在执行GC
   bool _is_gc_active;
+  // _n_par_threads：并行执行GC任务的线程数
   uint _n_par_threads;
 
+  // _total_collections：从JVM启动至今的GC次数
   unsigned int _total_collections;          // ... started
+  // _total_full_collections：从JVM启动至今的Full GC次数
   unsigned int _total_full_collections;     // ... started
   NOT_PRODUCT(volatile size_t _promotion_failure_alot_count;)
   NOT_PRODUCT(volatile size_t _promotion_failure_alot_gc_number;)
 
   // Reason for current garbage collection.  Should be set to
   // a value reflecting no collection between collections.
+  // _gc_cause：当前GC被触发的原因，Cause是GCCause定义的枚举
   GCCause::Cause _gc_cause;
+  //  _gc_lastcause：上一次GC被触发的原因
   GCCause::Cause _gc_lastcause;
+  // _perf_gc_cause：开启UsePerfData时用来保存_gc_cause
   PerfStringVariable* _perf_gc_cause;
+  // _perf_gc_lastcause：开启UsePerfData时用来保存_gc_lastcause
   PerfStringVariable* _perf_gc_lastcause;
 
   // Constructor
@@ -184,11 +200,15 @@ class CollectedHeap : public CHeapObj<mtInternal> {
   debug_only(static void check_for_valid_allocation_state();)
 
  public:
+  // CollectedHeap定义的表示GC实现类名称的枚举Name
   enum Name {
     Abstract,
     SharedHeap,
+    // GenCollectedHeap是开启UseSerialGC或者UseConcMarkSweepGC的GC实现，分别对应两种不同的GenCollectorPolicy。
     GenCollectedHeap,
+    // ParallelScavengeHeap就是开启UseParallelGC时的GC实现
     ParallelScavengeHeap,
+    // G1CollectedHeap是开启UseG1GC时的GC实现
     G1CollectedHeap
   };
 

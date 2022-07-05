@@ -887,6 +887,7 @@ objArrayOop ClassLoader::get_system_packages(TRAPS) {
 
 instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
   ResourceMark rm(THREAD);
+  // 获取类名
   EventMark m("loading class %s", h_name->as_C_string());
   ThreadProfilerMark tpm(ThreadProfilerMark::classLoaderRegion);
 
@@ -895,18 +896,22 @@ instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
   // st.print("%s.class", h_name->as_utf8());
   st.print_raw(h_name->as_utf8());
   st.print_raw(".class");
+  // 获取文件名
   char* name = st.as_string();
 
   // Lookup stream for parsing .class file
+  // ClassFileStream表示Class文件的字节流
   ClassFileStream* stream = NULL;
   int classpath_index = 0;
   {
     PerfClassTraceTime vmtimer(perf_sys_class_lookup_time(),
                                ((JavaThread*) THREAD)->get_thread_stat()->perf_timers_addr(),
                                PerfClassTraceTime::CLASS_LOAD);
+    //从第一个ClassPathEntry开始遍历所有的ClassPathEntry
     ClassPathEntry* e = _first_entry;
     while (e != NULL) {
       stream = e->open_stream(name, CHECK_NULL);
+      // 如果找到目标文件则跳出循环
       if (stream != NULL) {
         break;
       }
@@ -916,13 +921,17 @@ instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
   }
 
   instanceKlassHandle h;
+  // 如果找到了目标Class文件
   if (stream != NULL) {
 
     // class file found, parse it
+    // 构建一个ClassFileParser实例
     ClassFileParser parser(stream);
+    // 构建一个ClassLoaderData实例，每个类加载器都对应着一个ClassLoaderData对象，通过ClassLoaderData::the_null_class_loader_data()函数获取引导类加载器对应的ClassLoaderData对象。
     ClassLoaderData* loader_data = ClassLoaderData::the_null_class_loader_data();
     Handle protection_domain;
     TempNewSymbol parsed_name = NULL;
+    // 解析并加载class文件，注意此时并未开始链接
     instanceKlassHandle result = parser.parseClassFile(h_name,
                                                        loader_data,
                                                        protection_domain,
@@ -931,6 +940,7 @@ instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
                                                        CHECK_(h));
 
     // add to package table
+    // 调用ClassLoader的add_package方法，把当前类的包名加入到_package_hash_table中，避免重复加载解析。
     if (add_package(name, classpath_index, THREAD)) {
       h = result;
     }
